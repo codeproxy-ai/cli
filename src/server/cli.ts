@@ -3,11 +3,11 @@
 // ==============================================================================
 
 /**
- * `responses-proxy` CLI.
+ * `codeproxy` CLI.
  *
  * Usage:
- *   npx responses-proxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages
- *   npx responses-proxy --config config.json
+ *   npx codeproxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages
+ *   npx codeproxy --config config.json
  */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -97,11 +97,11 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp(): void {
-  console.log(`responses-proxy - local Responses API proxy
+  console.log(`codeproxy - local Responses API proxy
 
 Usage:
-  responses-proxy --base-url <url> [options]
-  responses-proxy --config <file> [options]
+  codeproxy --base-url <url> [options]
+  codeproxy --config <file> [options]
 
 Options:
   --base-url <url>         Upstream endpoint URL (required when not using --config)
@@ -145,10 +145,10 @@ Auth is caller-driven: send Authorization: Bearer <key> (or the upstream's
 native header) when calling the proxy. Nothing is stored server-side.
 
 Examples:
-  responses-proxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages
-  responses-proxy --upstream-format openai-chat --base-url https://api.openai.com/v1/chat/completions
-  responses-proxy --config my-config.json
-  responses-proxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages --apikey <key>
+  codeproxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages
+  codeproxy --upstream-format openai-chat --base-url https://api.openai.com/v1/chat/completions
+  codeproxy --config my-config.json
+  codeproxy --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages --apikey <key>
 `);
 }
 

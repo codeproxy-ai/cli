@@ -10,12 +10,12 @@ import { resolve, dirname } from 'node:path';
 import type { ConfigFile, UpstreamConfig } from '../types/config.js';
 
 const CONFIG_FILE_NAMES = [
-  'responses-proxy.config.json',
-  'responses-proxy.config.js',
-  'responses-proxy.config.mjs',
-  'responses-proxy.config.ts',
-  '.responses-proxy.json',
-  '.responses-proxy.js',
+  'codeproxy.config.json',
+  'codeproxy.config.js',
+  'codeproxy.config.mjs',
+  'codeproxy.config.ts',
+  '.codeproxy.json',
+  '.codeproxy.js',
 ] as const;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Configuration file format for responses-proxy.
+ * Configuration file format for codeproxy.
  */
 
 export type UpstreamFormat = 'anthropic' | 'openai-chat';
@@ -52,10 +52,10 @@ export interface ConfigFile {
 
 /** Default config file names to search for. */
 export const CONFIG_FILE_NAMES = [
-  'responses-proxy.config.json',
-  'responses-proxy.config.js',
-  'responses-proxy.config.mjs',
-  'responses-proxy.config.ts',
-  '.responses-proxy.json',
-  '.responses-proxy.js',
+  'codeproxy.config.json',
+  'codeproxy.config.js',
+  'codeproxy.config.mjs',
+  'codeproxy.config.ts',
+  '.codeproxy.json',
+  '.codeproxy.js',
 ];
