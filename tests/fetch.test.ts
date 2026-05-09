@@ -1,7 +1,7 @@
 /* eslint-disable max-lines */
 import { describe, expect, it } from 'vitest';
-import { createResponsesFetch } from '../src/fetch.js';
-import { encodeSseEvent, parseSseStream } from '../src/utils/sse.js';
+import { createResponsesFetch } from '@codeproxy/core';
+import { encodeSseEvent, parseSseStream } from '@codeproxy/core';
 
 function mockAnthropicStream(events: Array<{ type: string; data: unknown }>): typeof fetch {
   return async () => {

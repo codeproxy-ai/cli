@@ -34,7 +34,7 @@ function fmtDuration(ms: number): string {
   const seconds = Math.round((ms % 60000) / 1000);
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
-import { createResponsesFetch, type CreateResponsesFetchOptions } from '../fetch.js';
+import { createResponsesFetch, type CreateResponsesFetchOptions } from '@codeproxy/core';
 
 export interface StartProxyOptions extends Omit<CreateResponsesFetchOptions, 'passthroughFetch'> {
   /** Host to bind to. Defaults to `127.0.0.1`. */

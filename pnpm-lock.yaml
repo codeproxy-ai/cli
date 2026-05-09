@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@codeproxy/core':
+        specifier: ^0.1.0
+        version: 0.1.0
     devDependencies:
       '@ai0x0/utils':
         specifier: ^0.0.31
@@ -62,6 +66,10 @@ packages:
       drizzle-orm: ^0.45.2
       drizzle-zod: ^0.8.3
       zod: ^4.3.6
+
+  '@codeproxy/core@0.1.0':
+    resolution: {integrity: sha512-wOQUxRseVriS1gJPZ9O/JD+8eMfMh98azs6ECpUKoo4MuIAG5Lexvv8/7/aBkjVY2Za8CNjSM92c4/zHH/a9Iw==}
+    engines: {node: '>=18'}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1476,6 +1484,8 @@ snapshots:
       drizzle-orm: 0.45.2
       drizzle-zod: 0.8.3(drizzle-orm@0.45.2)(zod@4.4.3)
       zod: 4.4.3
+
+  '@codeproxy/core@0.1.0': {}
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true

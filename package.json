@@ -1,15 +1,15 @@
 {
-  "name": "responses-proxy",
-  "version": "0.2.0",
-  "description": "Translate between OpenAI Responses API and third-party AI upstreams (Anthropic, OpenAI Chat, etc.) in pure TypeScript. Browser-compatible.",
+  "name": "@codeproxy/cli",
+  "version": "0.1.0",
+  "description": "Local proxy server that converts any Chat Completions / Anthropic Messages API into OpenAI Responses API so Codex and Claude Code can use any LLM.",
   "keywords": [
     "openai",
     "responses-api",
     "anthropic",
     "claude",
+    "deepseek",
     "proxy",
-    "sse",
-    "browser"
+    "cli"
   ],
   "license": "MIT",
   "type": "module",
@@ -21,11 +21,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    },
-    "./server": {
-      "types": "./dist/server/index.d.ts",
-      "import": "./dist/server/index.js",
-      "require": "./dist/server/index.cjs"
     }
   },
   "files": [
@@ -34,15 +29,13 @@
     "LICENSE"
   ],
   "scripts": {
-    "dev": "tsx src/server/cli.ts --upstream-format anthropic --base-url https://api.anthropic.com/v1/messages --port 8787",
-    "dev:openai": "tsx src/server/cli.ts --upstream-format openai-chat --base-url https://api.openai.com/v1/chat/completions --port 8787",
+    "dev": "tsx src/server/cli.ts",
+    "dev:openai": "tsx src/server/cli.ts --upstream-format openai-chat --base-url https://api.openai.com/v1 --port 8787",
     "dev:config": "tsx src/server/cli.ts --config config.json",
-    "build": "tsup && npx esbuild src/server/cli.ts --bundle --platform=node --outfile=dist/server/cli.js --format=esm --banner:js=\"#!/usr/bin/env node\"",
+    "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" --fix"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@ai0x0/utils": "^0.0.31",
@@ -67,5 +60,8 @@
   },
   "bin": {
     "responses-proxy": "dist/server/cli.js"
+  },
+  "dependencies": {
+    "@codeproxy/core": "^0.1.0"
   }
 }

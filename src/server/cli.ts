@@ -12,7 +12,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { startProxy, type StartProxyOptions } from './proxy.js';
-import type { UpstreamFormat } from '../fetch.js';
+import type { UpstreamFormat } from '@codeproxy/core';
 import { validateConfig, getCurrentUpstreamConfig, type ConfigFile } from '../utils/config.js';
 
 interface CliArgs {

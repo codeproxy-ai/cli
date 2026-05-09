@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createResponsesFetch, type CacheStats } from '../src/fetch.js';
+import { createResponsesFetch, type CacheStats } from '@codeproxy/core';
 
 describe('cache logging', () => {
   it('collects cache stats from non-streaming response', async () => {
