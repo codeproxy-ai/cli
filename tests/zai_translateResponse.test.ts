@@ -46,7 +46,8 @@ describe('translateResponse (Zai -> Responses)', () => {
       (item: Record<string, unknown>) => item.type === 'function_call',
     );
     expect(toolCall).toBeDefined();
-    const tc: Record<string, unknown> = toolCall;
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for tool call
+    const tc = toolCall as Record<string, unknown>;
     expect(tc.name).toBe('search');
     expect(tc.arguments).toBe('{"q": "foo"}');
 
@@ -86,7 +87,8 @@ describe('translateResponse (Zai -> Responses)', () => {
       },
     });
 
-    const item: { type: string; action?: { command: string[] } } = res.output[0];
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for output item
+    const item = res.output[0] as { type: string; action?: { command: string[] } };
     expect(item.type).toBe('local_shell_call');
     expect(item.action?.command).toEqual(['ls', '-la']);
   });
@@ -123,7 +125,8 @@ describe('translateResponse (Zai -> Responses)', () => {
       },
     });
 
-    const item: { type: string } = res.output[0];
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for output item
+    const item = res.output[0] as { type: string };
     expect(item.type).toBe('local_shell_call');
   });
 
@@ -151,11 +154,12 @@ describe('translateResponse (Zai -> Responses)', () => {
     });
 
     expect(res.output.length).toBe(1);
-    const message: {
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for message
+    const message = res.output[0] as {
       type: string;
       role: string;
       content: Array<{ type: string; text: string }>;
-    } = res.output[0];
+    };
     expect(message.type).toBe('message');
     expect(message.role).toBe('assistant');
     expect(message.content[0].text).toBe('Hello, how can I help you?');

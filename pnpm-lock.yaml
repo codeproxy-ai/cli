@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@ai0x0/utils':
-        specifier: ^0.0.29
-        version: 0.0.29(drizzle-orm@0.45.2)(drizzle-zod@0.8.3(drizzle-orm@0.45.2)(zod@4.4.3))(zod@4.4.3)
+        specifier: ^0.0.31
+        version: 0.0.31(drizzle-orm@0.45.2)(drizzle-zod@0.8.3(drizzle-orm@0.45.2)(zod@4.4.3))(zod@4.4.3)
       '@eslint/js':
         specifier: ^9.39.4
         version: 9.39.4
@@ -56,8 +56,8 @@ importers:
 
 packages:
 
-  '@ai0x0/utils@0.0.29':
-    resolution: {integrity: sha512-H8jlSDa0MVCUt1EB9nZiyOru+12SpVzDJ4Hg1b3gwDG+cYbU256YzygVcl+Hjj6x/2ky9MbSl6k2ODwEhVJoMA==}
+  '@ai0x0/utils@0.0.31':
+    resolution: {integrity: sha512-luCKWoLAmDiLV8PeBBubZTJfLA+JTGjMxAh9BH+j1uFJoOfWc2O4hxr2RureYO9McqtoJb0h7xUhxNgzL88VrQ==}
     peerDependencies:
       drizzle-orm: ^0.45.2
       drizzle-zod: ^0.8.3
@@ -1471,7 +1471,7 @@ packages:
 
 snapshots:
 
-  '@ai0x0/utils@0.0.29(drizzle-orm@0.45.2)(drizzle-zod@0.8.3(drizzle-orm@0.45.2)(zod@4.4.3))(zod@4.4.3)':
+  '@ai0x0/utils@0.0.31(drizzle-orm@0.45.2)(drizzle-zod@0.8.3(drizzle-orm@0.45.2)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
       drizzle-orm: 0.45.2
       drizzle-zod: 0.8.3(drizzle-orm@0.45.2)(zod@4.4.3)

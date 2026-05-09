@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { describe, expect, it } from 'vitest';
 import { createResponsesFetch } from '../src/fetch.js';
 import { encodeSseEvent, parseSseStream } from '../src/utils/sse.js';
@@ -7,7 +8,9 @@ function mockAnthropicStream(events: Array<{ type: string; data: unknown }>): ty
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
-        for (const e of events) controller.enqueue(encoder.encode(encodeSseEvent(e.type, e.data)));
+        for (const e of events) {
+          controller.enqueue(encoder.encode(encodeSseEvent(e.type, e.data)));
+        }
         controller.close();
       },
     });
@@ -27,7 +30,8 @@ describe('createResponsesFetch', () => {
     const upstream: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       capturedUrl = typeof input === 'string' ? input : input.toString();
       capturedBody = String(init?.body ?? '');
-      const hdrs_capture: Record<string, string> = init?.headers ?? {};
+      // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
+      const hdrs_capture: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
       capturedHeaders = Object.fromEntries(Object.entries(hdrs_capture));
       return new Response(
         JSON.stringify({
@@ -73,7 +77,8 @@ describe('createResponsesFetch', () => {
   it('passes an existing x-api-key header through untouched', async () => {
     let captured: Record<string, string> = {};
     const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const hdrs_cap2: Record<string, string> = init?.headers ?? {};
+      // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
+      const hdrs_cap2: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
       captured = Object.fromEntries(Object.entries(hdrs_cap2));
       return new Response(
         JSON.stringify({
@@ -104,7 +109,8 @@ describe('createResponsesFetch', () => {
   it('drops incoming user-agent and forwards defaultHeaders user-agent to upstream', async () => {
     let captured: Record<string, string> = {};
     const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const hdrs_cap2: Record<string, string> = init?.headers ?? {};
+      // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
+      const hdrs_cap2: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
       captured = Object.fromEntries(Object.entries(hdrs_cap2));
       return new Response(
         JSON.stringify({
@@ -618,7 +624,8 @@ describe('config headers', () => {
   it('merges root-level defaultHeaders into upstream request', async () => {
     let capturedHeaders: Record<string, string> = {};
     const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const hdrs_capture: Record<string, string> = init?.headers ?? {};
+      // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
+      const hdrs_capture: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
       capturedHeaders = Object.fromEntries(Object.entries(hdrs_capture));
       return new Response(
         JSON.stringify({
@@ -741,7 +748,10 @@ describe('config headers', () => {
     };
 
     const upstreamConfig = config.upstreams[config.currentUpstream];
-    const reasoning_effort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
+    const reasoning_effort =
+      upstreamConfig.reasoningEffort ??
+      // eslint-disable-next-line no-restricted-syntax -- test needs wider type for reasoningEffort
+      (config as Record<string, unknown>).reasoningEffort;
     expect(reasoning_effort).toBe('high');
   });
 

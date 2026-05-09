@@ -18,11 +18,16 @@ export async function* parseSseStream(
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
 
+  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
     while (true) {
       const { value, done } = await reader.read();
-      if (done) break;
-      if (value) buffer += decoder.decode(value, { stream: true });
+      if (done) {
+        break;
+      }
+      if (value) {
+        buffer += decoder.decode(value, { stream: true });
+      }
 
       // Events are separated by blank lines.
       let idx: number;
@@ -30,13 +35,17 @@ export async function* parseSseStream(
         const raw = buffer.slice(0, idx);
         buffer = buffer.slice(idx + (buffer[idx] === '\r' ? 4 : 2));
         const msg = parseSseBlock(raw);
-        if (msg) yield msg;
+        if (msg) {
+          yield msg;
+        }
       }
     }
     buffer += decoder.decode();
     if (buffer.trim().length > 0) {
       const msg = parseSseBlock(buffer);
-      if (msg) yield msg;
+      if (msg) {
+        yield msg;
+      }
     }
   } finally {
     reader.releaseLock();
@@ -47,15 +56,24 @@ function parseSseBlock(block: string): SseMessage | undefined {
   let event: string | undefined;
   const dataLines: string[] = [];
   for (const line of block.split(/\r?\n/)) {
-    if (!line || line.startsWith(':')) continue;
+    if (!line || line.startsWith(':')) {
+      continue;
+    }
     const colon = line.indexOf(':');
     const field = colon === -1 ? line : line.slice(0, colon);
     let value = colon === -1 ? '' : line.slice(colon + 1);
-    if (value.startsWith(' ')) value = value.slice(1);
-    if (field === 'event') event = value;
-    else if (field === 'data') dataLines.push(value);
+    if (value.startsWith(' ')) {
+      value = value.slice(1);
+    }
+    if (field === 'event') {
+      event = value;
+    } else if (field === 'data') {
+      dataLines.push(value);
+    }
   }
-  if (dataLines.length === 0) return undefined;
+  if (dataLines.length === 0) {
+    return undefined;
+  }
   return { event, data: dataLines.join('\n') };
 }
 

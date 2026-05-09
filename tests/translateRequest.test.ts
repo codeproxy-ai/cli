@@ -78,7 +78,9 @@ describe('translateRequest (Responses -> Anthropic)', () => {
       ],
     });
     const firstMessage = request.messages[0];
-    if (!Array.isArray(firstMessage.content)) throw new Error('unexpected');
+    if (!Array.isArray(firstMessage.content)) {
+      throw new Error('unexpected');
+    }
     const firstBlock: {
       type: string;
       source?: { type: string; media_type?: string; data?: string };

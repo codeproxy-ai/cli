@@ -112,7 +112,9 @@ describe('cache logging', () => {
     if (reader) {
       while (true) {
         const { done } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
       }
     }
 

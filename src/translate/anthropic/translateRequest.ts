@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // ==============================================================================
 // Block Conversion
 // ==============================================================================
@@ -84,14 +85,20 @@ export function translateRequest(
   if (systemBlocks.length) {
     request.system = systemBlocks;
   }
-  if (typeof data.temperature === 'number') request.temperature = data.temperature;
-  if (typeof data.top_p === 'number') request.top_p = data.top_p;
+  if (typeof data.temperature === 'number') {
+    request.temperature = data.temperature;
+  }
+  if (typeof data.top_p === 'number') {
+    request.top_p = data.top_p;
+  }
 
   const tools = mapTools(data.tools || []);
   if (tools.length) {
     request.tools = tools;
     const toolChoice = mapToolChoice(data.tool_choice);
-    if (toolChoice) request.tool_choice = toolChoice;
+    if (toolChoice) {
+      request.tool_choice = toolChoice;
+    }
   }
 
   if (data.metadata && typeof data.metadata === 'object') {
@@ -99,28 +106,38 @@ export function translateRequest(
   }
 
   const thinking = mapThinking(data, maxTokens, options.reasoningBudgets);
-  if (thinking) request.thinking = thinking;
+  if (thinking) {
+    request.thinking = thinking;
+  }
 
   return { request, hasPromptCache };
 }
 
 function extractSystemBlocks(instructions: ResponsesRequest['instructions']): AnthropicTextBlock[] {
-  if (!instructions) return [];
+  if (!instructions) {
+    return [];
+  }
   if (typeof instructions === 'string') {
     return [{ type: 'text', text: instructions }];
   }
-  if (!Array.isArray(instructions)) return [];
+  if (!Array.isArray(instructions)) {
+    return [];
+  }
   const blocks: AnthropicTextBlock[] = [];
   for (const item of instructions) {
-    if (typeof item === 'string') blocks.push({ type: 'text', text: item });
-    else if (item && typeof item === 'object') {
+    if (typeof item === 'string') {
+      blocks.push({ type: 'text', text: item });
+    } else if (item && typeof item === 'object') {
       const block: AnthropicTextBlock = {
         type: 'text',
         text: String(item.text ?? ''),
       };
-      const cacheItem: { cache_control?: Record<string, unknown> } = item;
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const cacheItem = item as { cache_control?: Record<string, unknown> };
       const cache = cacheItem.cache_control;
-      if (cache) block.cache_control = cache;
+      if (cache) {
+        block.cache_control = cache;
+      }
       blocks.push(block);
     }
   }
@@ -166,7 +183,9 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
       messages.push({ role: 'user', content: [{ type: 'text', text: raw }] });
       continue;
     }
-    if (!raw || typeof raw !== 'object') continue;
+    if (!raw || typeof raw !== 'object') {
+      continue;
+    }
     const item: Record<string, unknown> = raw;
     const itemType: string = String(item.type || 'message');
 
@@ -196,7 +215,9 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
     ) {
       flushToolResults();
       const block = mapInputToolCall(item);
-      if (block) pendingToolUses.push(block);
+      if (block) {
+        pendingToolUses.push(block);
+      }
       continue;
     }
 
@@ -208,11 +229,15 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
     if (itemType === 'message' || itemType === 'agentMessage') {
       flushPending();
       let role: string = String(item.role || 'user');
-      if (role === 'developer') role = 'system';
+      if (role === 'developer') {
+        role = 'system';
+      }
 
       if (role === 'system') {
         const text = extractMessageText(item);
-        if (text) systemBlocks.push({ type: 'text', text });
+        if (text) {
+          systemBlocks.push({ type: 'text', text });
+        }
         continue;
       }
 
@@ -237,7 +262,7 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
               contentPart.type === 'image' ||
               contentPart.type === 'image_url'
             ) {
-              const imgUrlPart: { image_url?: string | { url: string } } = p;
+              const imgUrlPart: { image_url?: string | { url: string } } = contentPart;
               const imgUrl = imgUrlPart.image_url;
               const urlStr =
                 typeof imgUrl === 'string'
@@ -260,13 +285,13 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
                   source: imgSource,
                 });
               } else {
-                const data = String(p.data ?? p.base64 ?? '');
+                const data = String(contentPart.data ?? contentPart.base64 ?? '');
                 if (data) {
                   contentBlocks.push({
                     type: 'image',
                     source: {
                       type: 'base64',
-                      media_type: p.mime_type || p.media_type || 'image/png',
+                      media_type: contentPart.mime_type || contentPart.media_type || 'image/png',
                       data,
                     },
                   });
@@ -280,8 +305,8 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
                 type: 'document',
                 source: {
                   type: 'base64',
-                  media_type: p.mime_type || 'application/pdf',
-                  data: String(p.data ?? ''),
+                  media_type: contentPart.mime_type || 'application/pdf',
+                  data: String(contentPart.data ?? ''),
                 },
               });
             }
@@ -305,7 +330,9 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
   flushPending();
 
   for (const block of systemBlocks) {
-    if (block.cache_control) hasPromptCache = true;
+    if (block.cache_control) {
+      hasPromptCache = true;
+    }
   }
 
   return { messages, hasPromptCache };
@@ -313,12 +340,15 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
 
 function extractMessageText(item: Record<string, unknown>): string {
   const rawContent = item.content;
-  if (typeof rawContent === 'string') return rawContent;
+  if (typeof rawContent === 'string') {
+    return rawContent;
+  }
   if (Array.isArray(rawContent)) {
     let out = '';
     for (const part of rawContent) {
-      if (typeof part === 'string') out += part;
-      else if (part && typeof part === 'object') {
+      if (typeof part === 'string') {
+        out += part;
+      } else if (part && typeof part === 'object') {
         out += String(part.text ?? '');
       }
     }
@@ -329,36 +359,55 @@ function extractMessageText(item: Record<string, unknown>): string {
 
 function extractToolOutputText(item: Record<string, unknown>): string {
   const raw = item.output ?? item.content ?? item.stdout ?? '';
-  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'string') {
+    return raw;
+  }
   if (Array.isArray(raw)) {
     let out = '';
     for (const part of raw) {
-      if (typeof part === 'string') out += part;
-      else if (part && typeof part === 'object') out += String(part.text ?? '');
+      if (typeof part === 'string') {
+        out += part;
+      } else if (part && typeof part === 'object') {
+        out += String(part.text ?? '');
+      }
     }
     return out;
   }
-  if (raw && typeof raw === 'object') return String(raw.content ?? '');
+
+  if (raw && typeof raw === 'object') {
+    // eslint-disable-next-line no-restricted-syntax -- type narrowing for unknown type
+    return String((raw as Record<string, unknown>).content ?? '');
+  }
   return '';
 }
 
 function mapInputToolCall(item: Record<string, unknown>): AnthropicToolUseBlock | undefined {
   const callId: string = String(item.call_id || item.id || makeId('call'));
-  let name: string | undefined = item.name;
-  const itemType: string | undefined = item.type;
+  let name = typeof item.name === 'string' ? item.name : undefined;
+  const itemType = typeof item.type === 'string' ? item.type : undefined;
 
   if (!name) {
-    if (itemType === 'commandExecution') name = 'run_shell_command';
-    else if (itemType === 'local_shell_call') name = 'local_shell_command';
-    else if (itemType === 'fileChange') name = 'write_file';
-    else if (itemType === 'web_search_call') name = 'web_search';
+    if (itemType === 'commandExecution') {
+      name = 'run_shell_command';
+    } else if (itemType === 'local_shell_call') {
+      name = 'local_shell_command';
+    } else if (itemType === 'fileChange') {
+      name = 'write_file';
+    } else if (itemType === 'web_search_call') {
+      name = 'web_search';
+    }
   }
 
-  if (!name) return undefined;
+  if (!name) {
+    return undefined;
+  }
 
-  const args: Record<string, unknown> = item.arguments ?? {};
-  const inp: Record<string, unknown> = item.input ?? {};
-  const input: Record<string, unknown> = args ?? inp ?? {};
+  const args: Record<string, unknown> =
+    typeof item.arguments === 'object' && item.arguments !== null
+      ? // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        (item.arguments as Record<string, unknown>)
+      : {};
+  const input: Record<string, unknown> = args;
 
   const block: AnthropicToolUseBlock = {
     type: 'tool_use',
@@ -369,24 +418,36 @@ function mapInputToolCall(item: Record<string, unknown>): AnthropicToolUseBlock 
 
   const cacheItem: { cache_control?: Record<string, unknown> } = item;
   const cache = cacheItem.cache_control;
-  if (cache) block.cache_control = cache;
+  if (cache) {
+    block.cache_control = cache;
+  }
 
   return block;
 }
 
+// ==============================================================================
+// Utility Functions
+// ==============================================================================
+
 function mapTools(tools: ResponsesTool[]): (AnthropicTool | Record<string, unknown>)[] {
   const out: (AnthropicTool | Record<string, unknown>)[] = [];
   for (const tool of tools) {
-    if (!tool || typeof tool !== 'object') continue;
+    if (!tool || typeof tool !== 'object') {
+      continue;
+    }
     const tt = tool.type || '';
     if (ANTHROPIC_BUILTIN_TOOL_TYPES.has(tt)) {
       out.push(tool);
       continue;
     }
-    if (tt !== 'function') continue;
+    if (tt !== 'function') {
+      continue;
+    }
     const fn = tool.function;
     const name = fn?.name ?? tool.name;
-    if (!name) continue;
+    if (!name) {
+      continue;
+    }
     const toolInputSchema: Record<string, unknown> = fn?.parameters ??
       tool.parameters ?? { type: 'object' };
     out.push({
@@ -399,14 +460,22 @@ function mapTools(tools: ResponsesTool[]): (AnthropicTool | Record<string, unkno
 }
 
 function mapToolChoice(choice: ResponsesToolChoice): AnthropicToolChoice | undefined {
-  if (choice == null || choice === 'auto') return { type: 'auto' };
-  if (choice === 'required') return { type: 'any' };
-  if (choice === 'none') return undefined;
+  if (choice == null || choice === 'auto') {
+    return { type: 'auto' };
+  }
+  if (choice === 'required') {
+    return { type: 'any' };
+  }
+  if (choice === 'none') {
+    return undefined;
+  }
   if (typeof choice === 'object') {
     if (choice.type === 'function' && 'function' in choice && choice.function?.name) {
       return { type: 'tool', name: choice.function.name };
     }
-    if (choice.type === 'auto' || choice.type === 'any') return { type: choice.type };
+    if (choice.type === 'auto' || choice.type === 'any') {
+      return { type: choice.type };
+    }
   }
   return { type: 'auto' };
 }
@@ -417,9 +486,13 @@ function mapThinking(
   overrides?: Partial<Record<'minimal' | 'low' | 'medium' | 'high' | 'xhigh', number>>,
 ): AnthropicThinkingConfig | undefined {
   const reasoning = data.reasoning;
-  if (!reasoning) return undefined;
+  if (!reasoning) {
+    return undefined;
+  }
   const effort = reasoning.effort;
-  if (!effort || effort === 'minimal') return undefined;
+  if (!effort || effort === 'minimal') {
+    return undefined;
+  }
   const budgets = { ...DEFAULT_REASONING_BUDGETS, ...overrides };
   const budget = budgets[effort] ?? DEFAULT_REASONING_BUDGETS.medium;
   const clamped = Math.max(1024, Math.min(budget, Math.max(1024, maxTokens - 1024)));
@@ -437,12 +510,16 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
     const msg = working[i];
     repaired.push(msg);
     const content = msg.content;
-    if (msg.role !== 'assistant' || !Array.isArray(content)) continue;
+    if (msg.role !== 'assistant' || !Array.isArray(content)) {
+      continue;
+    }
 
     const toolUseIds = content
       .filter((block): block is AnthropicToolUseBlock => !!block && block.type === 'tool_use')
       .map((block) => block.id);
-    if (!toolUseIds.length) continue;
+    if (!toolUseIds.length) {
+      continue;
+    }
 
     const next = working[i + 1];
     const nextUserContent =
@@ -452,7 +529,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
     const consumedInNext = new Set<string>();
     for (const block of nextUserContent) {
       if (block && block.type === 'tool_result') {
-        const tr: AnthropicToolResultBlock = block;
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        const tr = block as AnthropicToolResultBlock;
         if (toolUseIds.includes(tr.tool_use_id) && !foundById.has(tr.tool_use_id)) {
           foundById.set(tr.tool_use_id, tr);
           consumedInNext.add(tr.tool_use_id);
@@ -465,11 +543,14 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
       const missingSet = new Set(missing);
       for (let j = i + 2; j < working.length && missingSet.size; j++) {
         const later = working[j];
-        if (later.role !== 'user' || !Array.isArray(later.content)) continue;
+        if (later.role !== 'user' || !Array.isArray(later.content)) {
+          continue;
+        }
         const keep: AnthropicContentBlock[] = [];
         for (const block of later.content) {
           if (block && block.type === 'tool_result') {
-            const tr: AnthropicToolResultBlock = block;
+            // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+            const tr = block as AnthropicToolResultBlock;
             if (missingSet.has(tr.tool_use_id)) {
               foundById.set(tr.tool_use_id, tr);
               missingSet.delete(tr.tool_use_id);
@@ -495,7 +576,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
     if (nextUserContent.length) {
       const remaining = nextUserContent.filter((block) => {
         if (block && block.type === 'tool_result') {
-          const tr: AnthropicToolResultBlock = block;
+          // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+          const tr = block as AnthropicToolResultBlock;
           if (consumedInNext.has(tr.tool_use_id)) {
             consumedInNext.delete(tr.tool_use_id);
             return false;
@@ -503,7 +585,9 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
         }
         return true;
       });
-      if (remaining.length) repaired.push({ role: 'user', content: remaining });
+      if (remaining.length) {
+        repaired.push({ role: 'user', content: remaining });
+      }
       i += 1;
     }
   }
@@ -514,14 +598,22 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
 function sanitizeMessages(messages: AnthropicMessage[]): AnthropicMessage[] {
   const out: AnthropicMessage[] = [];
   for (const msg of messages) {
-    if (!msg || (msg.role !== 'user' && msg.role !== 'assistant')) continue;
+    if (!msg || (msg.role !== 'user' && msg.role !== 'assistant')) {
+      continue;
+    }
     if (Array.isArray(msg.content)) {
       const blocks = msg.content.filter((block) => {
-        if (!block || typeof block !== 'object') return false;
-        if (block.type === 'text' && !block.text) return false;
+        if (!block || typeof block !== 'object') {
+          return false;
+        }
+        if (block.type === 'text' && !block.text) {
+          return false;
+        }
         return true;
       });
-      if (!blocks.length) continue;
+      if (!blocks.length) {
+        continue;
+      }
       out.push({ role: msg.role, content: blocks });
     } else if (typeof msg.content === 'string' && msg.content) {
       out.push({ role: msg.role, content: [{ type: 'text', text: msg.content }] });
@@ -531,8 +623,12 @@ function sanitizeMessages(messages: AnthropicMessage[]): AnthropicMessage[] {
 }
 
 function ensureEndsWithUser(messages: AnthropicMessage[]): AnthropicMessage[] {
-  if (!messages.length) return [{ role: 'user', content: [{ type: 'text', text: '...' }] }];
+  if (!messages.length) {
+    return [{ role: 'user', content: [{ type: 'text', text: '...' }] }];
+  }
   const last = messages[messages.length - 1];
-  if (last.role === 'user') return messages;
+  if (last.role === 'user') {
+    return messages;
+  }
   return [...messages, { role: 'user', content: [{ type: 'text', text: 'Continue.' }] }];
 }

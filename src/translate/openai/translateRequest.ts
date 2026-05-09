@@ -42,7 +42,9 @@ export function translateRequest(
   const messages: OpenAiChatMessage[] = [];
 
   const systemContent = buildSystemContent(data.instructions);
-  if (systemContent) messages.push({ role: 'system', content: systemContent });
+  if (systemContent) {
+    messages.push({ role: 'system', content: systemContent });
+  }
 
   const inputItems: ResponsesInputItem[] =
     typeof data.input === 'string' ? [data.input] : Array.isArray(data.input) ? data.input : [];
@@ -52,7 +54,9 @@ export function translateRequest(
       messages.push({ role: 'user', content: raw });
       continue;
     }
-    if (!raw || typeof raw !== 'object') continue;
+    if (!raw || typeof raw !== 'object') {
+      continue;
+    }
     const rawItem: Record<string, unknown> = raw;
     processInputItem(rawItem, messages, options.dropImages);
   }
@@ -62,28 +66,33 @@ export function translateRequest(
     messages,
   };
 
-  if (typeof data.temperature === 'number') request.temperature = data.temperature;
-  if (typeof data.top_p === 'number') request.top_p = data.top_p;
-<<<<<<< HEAD
-=======
+  if (typeof data.temperature === 'number') {
+    request.temperature = data.temperature;
+  }
+  if (typeof data.top_p === 'number') {
+    request.top_p = data.top_p;
+  }
   const effort = typeof data.reasoning?.effort === 'string' ? data.reasoning.effort : undefined;
   if (effort) {
     const req: Record<string, unknown> = request;
     req.reasoning_effort = effort;
   }
->>>>>>> fix: apply ESLint rules - add consistent-type-assertions (no as), fix no-one-letter-vars rule bug
 
   const maxTokens =
     (typeof data.max_output_tokens === 'number' && data.max_output_tokens) ||
     (typeof data.max_tokens === 'number' && data.max_tokens) ||
     options.defaultMaxTokens;
-  if (typeof maxTokens === 'number') request.max_tokens = maxTokens;
+  if (typeof maxTokens === 'number') {
+    request.max_tokens = maxTokens;
+  }
 
   const tools = mapTools(data.tools ?? []);
   if (tools.length) {
     request.tools = tools;
     const toolChoice = mapToolChoice(data.tool_choice);
-    if (toolChoice !== undefined) request.tool_choice = toolChoice;
+    if (toolChoice !== undefined) {
+      request.tool_choice = toolChoice;
+    }
   }
 
   // Some upstreams (e.g. GLM thinking mode) require reasoning_content on every
@@ -106,14 +115,23 @@ export function translateRequest(
 }
 
 function buildSystemContent(instructions: ResponsesRequest['instructions']): string {
-  if (!instructions) return '';
-  if (typeof instructions === 'string') return instructions;
-  if (!Array.isArray(instructions)) return '';
+  if (!instructions) {
+    return '';
+  }
+  if (typeof instructions === 'string') {
+    return instructions;
+  }
+  if (!Array.isArray(instructions)) {
+    return '';
+  }
   let out = '';
   for (const block of instructions) {
-    if (typeof block === 'string') out += block;
-    else if (block && typeof block === 'object') const blockObj: { text?: string } = block;
-    out += String(blockObj.text ?? '');
+    if (typeof block === 'string') {
+      out += block;
+    } else if (block && typeof block === 'object') {
+      // eslint-disable-next-line no-restricted-syntax -- Record extraction from unknown union
+      out += String((block as { text?: string }).text ?? '');
+    }
   }
   return out;
 }
@@ -127,7 +145,9 @@ function processInputItem(
 
   const getLastAssistant = (): OpenAiChatMessage => {
     const last = messages[messages.length - 1];
-    if (last && last.role === 'assistant') return last;
+    if (last && last.role === 'assistant') {
+      return last;
+    }
     const msg: OpenAiChatMessage = { role: 'assistant', content: null };
     messages.push(msg);
     return msg;
@@ -139,7 +159,9 @@ function processInputItem(
     // ==============================================================================
 
     let role: string = String(item.role) || 'user';
-    if (role === 'developer') role = 'system';
+    if (role === 'developer') {
+      role = 'system';
+    }
 
     let reasoningContent: string = String(item.reasoning_content ?? '');
     const rawContent = item.content;
@@ -168,14 +190,15 @@ function processInputItem(
       }
       const amsg = getLastAssistant();
       if (content) {
-        const ac: string | null | undefined = amsg.content;
-        amsg.content = (ac ?? '') + content;
+        amsg.content = (amsg.content ?? '') + content;
       }
       if (reasoningContent) {
         amsg.reasoning_content = (amsg.reasoning_content ?? '') + reasoningContent;
       }
       const sig = item.thought_signature;
-      if (typeof sig === 'string' && sig) amsg.thought_signature = sig;
+      if (typeof sig === 'string' && sig) {
+        amsg.thought_signature = sig;
+      }
     } else {
       if (typeof rawContent === 'string') {
         messages.push({ role, content: rawContent });
@@ -199,7 +222,9 @@ function processInputItem(
               contentPart.type === 'image' ||
               contentPart.type === 'image_url'
             ) {
-              if (dropImages) continue;
+              if (dropImages) {
+                continue;
+              }
               let url = '';
               const partWithImage: { image_url?: string | { url: string } } = part;
               const imgUrl = partWithImage.image_url;
@@ -223,7 +248,7 @@ function processInputItem(
               if (url) {
                 contentBlocks.push({ type: 'image_url', image_url: { url } });
               }
-            } else if (partItem.type === 'input_file' || partItem.type === 'file') {
+            } else if (part.type === 'input_file' || part.type === 'file') {
               const partFile: {
                 file_data?: string;
                 data?: string;
@@ -244,9 +269,13 @@ function processInputItem(
           }
         }
         const msg: OpenAiChatMessage = { role, content: contentBlocks };
-        if (reasoningContent) msg.reasoning_content = reasoningContent;
+        if (reasoningContent) {
+          msg.reasoning_content = reasoningContent;
+        }
         const sig = item.thought_signature;
-        if (typeof sig === 'string' && sig) msg.thought_signature = sig;
+        if (typeof sig === 'string' && sig) {
+          msg.thought_signature = sig;
+        }
         messages.push(msg);
       } else {
         messages.push({ role, content: '' });
@@ -260,9 +289,12 @@ function processInputItem(
     let content = '';
     if (Array.isArray(rawList)) {
       for (const cp of rawList) {
-        if (typeof cp === 'string') content += cp;
-        else if (cp && typeof cp === 'object') const cpObj: { text?: string } = cp;
-        content += String(cpObj.text ?? '');
+        if (typeof cp === 'string') {
+          content += cp;
+        } else if (cp && typeof cp === 'object') {
+          // eslint-disable-next-line no-restricted-syntax -- Record extraction from unknown union
+          content += String((cp as { text?: string }).text ?? '');
+        }
       }
     } else if (typeof rawList === 'string') {
       content += rawList;
@@ -270,7 +302,9 @@ function processInputItem(
     const amsg = getLastAssistant();
     amsg.reasoning_content = (amsg.reasoning_content ?? '') + content;
     const sig = item.thought_signature;
-    if (typeof sig === 'string' && sig) amsg.thought_signature = sig;
+    if (typeof sig === 'string' && sig) {
+      amsg.thought_signature = sig;
+    }
     return;
   }
 
@@ -307,10 +341,15 @@ function processToolCall(
   const itemType: string | undefined = item.type === undefined ? undefined : String(item.type);
 
   if (!name) {
-    if (itemType === 'commandExecution') name = 'run_shell_command';
-    else if (itemType === 'local_shell_call') name = 'local_shell_command';
-    else if (itemType === 'fileChange') name = 'write_file';
-    else if (itemType === 'web_search_call') name = 'web_search';
+    if (itemType === 'commandExecution') {
+      name = 'run_shell_command';
+    } else if (itemType === 'local_shell_call') {
+      name = 'local_shell_command';
+    } else if (itemType === 'fileChange') {
+      name = 'write_file';
+    } else if (itemType === 'web_search_call') {
+      name = 'web_search';
+    }
   }
 
   let args: unknown =
@@ -325,8 +364,10 @@ function processToolCall(
         dir_path: item.cwd ?? '.',
       };
     } else if (itemType === 'local_shell_call') {
-      const action: Record<string, unknown> = item.action === undefined ? {} : item.action;
-      const execChild: Record<string, unknown> = action.exec === undefined ? {} : action.exec;
+      // eslint-disable-next-line no-restricted-syntax -- Narrow unknown to Record
+      const action = (item.action === undefined ? {} : item.action) as Record<string, unknown>;
+      // eslint-disable-next-line no-restricted-syntax -- Narrow unknown to Record
+      const execChild = (action.exec === undefined ? {} : action.exec) as Record<string, unknown>;
       args = {
         command: execChild.command ?? [],
         working_directory: execChild.working_directory,
@@ -342,10 +383,14 @@ function processToolCall(
 
   const argsStr = typeof args === 'string' ? args : jsonStringifySafe(args ?? {});
 
-  if (!name) return;
+  if (!name) {
+    return;
+  }
 
   const amsg = getLastAssistant();
-  if (!amsg.tool_calls) amsg.tool_calls = [];
+  if (!amsg.tool_calls) {
+    amsg.tool_calls = [];
+  }
   amsg.tool_calls.push({
     id: callId,
     type: 'function',
@@ -354,7 +399,9 @@ function processToolCall(
 
   const sig = item.thought_signature;
   const thought = item.thought;
-  if (typeof sig === 'string' && sig) amsg.thought_signature = sig;
+  if (typeof sig === 'string' && sig) {
+    amsg.thought_signature = sig;
+  }
   if (typeof thought === 'string' && thought) {
     amsg.reasoning_content = (amsg.reasoning_content ?? '') + thought;
   }
@@ -370,17 +417,22 @@ function processToolOutput(item: Record<string, unknown>, messages: OpenAiChatMe
     content = outputRaw;
   } else if (Array.isArray(outputRaw)) {
     for (const part of outputRaw) {
-      if (typeof part === 'string') content += part;
-      else if (part && typeof part === 'object') {
+      if (typeof part === 'string') {
+        content += part;
+      } else if (part && typeof part === 'object') {
         const partItem: { type?: string; text?: string } = part;
-        if (partItem.type === 'input_text' || partItem.type === 'text')
+        if (partItem.type === 'input_text' || partItem.type === 'text') {
           content += String(partItem.text ?? '');
+        }
       }
     }
   } else if (outputRaw && typeof outputRaw === 'object') {
-    const obj: Record<string, unknown> = outputRaw;
+    // eslint-disable-next-line no-restricted-syntax -- Narrow object to Record
+    const obj = outputRaw as Record<string, unknown>;
     content = String(obj.content ?? '');
-    if (!content && obj.success === false) content = 'Error: Tool execution failed';
+    if (!content && obj.success === false) {
+      content = 'Error: Tool execution failed';
+    }
   }
 
   if (!content && typeof item.stderr === 'string' && item.stderr) {
@@ -401,12 +453,16 @@ function mapTools(tools: ResponsesTool[]): OpenAiChatTool[] {
   /** If true, drop image/file parts from user messages (e.g. DeepSeek text-only models). */
   const out: OpenAiChatTool[] = [];
   for (const tool of tools) {
-    if (!tool || typeof tool !== 'object') continue;
+    if (!tool || typeof tool !== 'object') {
+      continue;
+    }
     const tt = tool.type;
     if (tt === 'function') {
       const fn = tool.function;
       const name = fn?.name ?? tool.name;
-      if (!name) continue;
+      if (!name) {
+        continue;
+      }
       const params = fn?.parameters ?? tool.parameters ?? { type: 'object' };
       out.push({
         type: 'function',
@@ -423,8 +479,12 @@ function mapTools(tools: ResponsesTool[]): OpenAiChatTool[] {
 }
 
 function mapToolChoice(choice: ResponsesToolChoice): OpenAiChatToolChoice | undefined {
-  if (choice == null) return undefined;
-  if (choice === 'auto' || choice === 'required' || choice === 'none') return choice;
+  if (choice == null) {
+    return undefined;
+  }
+  if (choice === 'auto' || choice === 'required' || choice === 'none') {
+    return choice;
+  }
   if (typeof choice === 'object') {
     if (choice.type === 'function' && 'function' in choice && choice.function?.name) {
       return { type: 'function', function: { name: choice.function.name } };
@@ -435,10 +495,18 @@ function mapToolChoice(choice: ResponsesToolChoice): OpenAiChatToolChoice | unde
 }
 
 function isEmpty(value: unknown): boolean {
-  if (value == null) return true;
-  if (typeof value === 'string') return value.length === 0;
-  if (Array.isArray(value)) return value.length === 0;
-  if (typeof value === 'object' && value !== null) return Object.keys(value).length === 0;
+  if (value == null) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return value.length === 0;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (typeof value === 'object' && value !== null) {
+    return Object.keys(value).length === 0;
+  }
   return false;
 }
 
@@ -452,7 +520,9 @@ function isEmpty(value: unknown): boolean {
  * assistant → tool → …  This function repairs that ordering.
  */
 function repairToolMessageOrder(messages: OpenAiChatMessage[]): void {
-  if (messages.length === 0) return;
+  if (messages.length === 0) {
+    return;
+  }
 
   // Phase 1: group messages by assistant "block".  A block starts at an
   // assistant message (possibly with tool_calls) and contains any subsequent
@@ -483,7 +553,9 @@ function repairToolMessageOrder(messages: OpenAiChatMessage[]): void {
     const toolCallIds = new Set(
       (block.assistant.tool_calls ?? []).map((tc) => tc.id).filter(Boolean),
     );
-    if (toolCallIds.size === 0) continue;
+    if (toolCallIds.size === 0) {
+      continue;
+    }
 
     const tools: OpenAiChatMessage[] = [];
     const others: OpenAiChatMessage[] = [];

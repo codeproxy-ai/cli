@@ -20,7 +20,8 @@ describe('translateResponse (Anthropic -> Responses)', () => {
 
     const toolCall = res.output.find((item: { type: string }) => item.type === 'function_call');
     expect(toolCall).toBeDefined();
-    const tc: { name: string; arguments: string } = toolCall!;
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for tool call
+    const tc = toolCall! as { name: string; arguments: string };
     expect(tc.name).toBe('search');
     expect(tc.arguments).toBe('{"q":"foo"}');
     const message = res.output.find((item: { type: string }) => item.type === 'message');
@@ -36,7 +37,8 @@ describe('translateResponse (Anthropic -> Responses)', () => {
       content: [{ type: 'tool_use', id: 'c', name: 'shell', input: { command: ['ls', '-la'] } }],
       usage: { input_tokens: 0, output_tokens: 0 },
     });
-    const item: { type: string; action?: { command: string[] } } = res.output[0];
+    // eslint-disable-next-line no-restricted-syntax -- test needs wider type for output item
+    const item = res.output[0] as { type: string; action?: { command: string[] } };
     expect(item.type).toBe('local_shell_call');
     expect(item.action?.command).toEqual(['ls', '-la']);
   });

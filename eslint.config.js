@@ -1,4 +1,4 @@
-import ai0x0Plugin from "@ai0x0/utils/eslint-rules/index.js";
+import { ai0x0 as ai0x0Plugin, allRestrictions } from "@ai0x0/utils/eslint-config/index.js";
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettierConfig from "eslint-config-prettier";
@@ -11,6 +11,11 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ai0x0Plugin.configs.recommended,
+  {
+    rules: {
+      "no-restricted-syntax": ["error", ...allRestrictions],
+    },
+  },
   prettierConfig,
   {
     plugins: { prettier: prettierPlugin },
@@ -24,9 +29,10 @@ export default [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/consistent-type-assertions": [
+      curly: "error",
+      "max-lines": [
         "error",
-        { assertionStyle: "never" },
+        { max: 500, skipBlankLines: true, skipComments: true },
       ],
     },
   },

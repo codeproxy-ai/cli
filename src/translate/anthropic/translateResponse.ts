@@ -1,4 +1,10 @@
-import type { AnthropicResponse, AnthropicContentBlock } from '../../types/anthropic.js';
+import type {
+  AnthropicResponse,
+  AnthropicContentBlock,
+  AnthropicTextBlock,
+  AnthropicToolUseBlock,
+  AnthropicThinkingBlock,
+} from '../../types/anthropic.js';
 import type {
   ResponsesOutputItem,
   ResponsesOutputFunctionCall,
@@ -53,30 +59,43 @@ export function mapOutputItems(content: AnthropicContentBlock[]): ResponsesOutpu
   const textChunks: string[] = [];
 
   for (const block of content) {
-    if (!block || typeof block !== 'object') continue;
+    if (!block || typeof block !== 'object') {
+      continue;
+    }
     const btype: string = block.type;
     if (btype === 'text') {
-      textChunks.push(String(block.text ?? ''));
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      textChunks.push(String((block as AnthropicTextBlock).text ?? ''));
     } else if (btype === 'tool_use') {
-      const args = jsonStringifySafe(block.input ?? {});
-      const callId = block.id ?? makeId('call');
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const args = jsonStringifySafe((block as AnthropicToolUseBlock).input ?? {});
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const callId = (block as AnthropicToolUseBlock).id ?? makeId('call');
       const item: ResponsesOutputFunctionCall = {
         id: callId,
         type: 'function_call',
         status: 'completed',
-        name: block.name ?? 'tool',
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        name: (block as AnthropicToolUseBlock).name ?? 'tool',
         arguments: args,
         call_id: callId,
       };
-      if (block.name && SHELL_TOOL_NAMES.has(block.name)) {
+      if (
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        (block as AnthropicToolUseBlock).name &&
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        SHELL_TOOL_NAMES.has((block as AnthropicToolUseBlock).name)
+      ) {
         item.type = 'local_shell_call';
-        const input_: Record<string, unknown> = block.input ?? {};
-        const command: string[] = input_.command ?? [];
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        const input_: Record<string, unknown> = (block as AnthropicToolUseBlock).input ?? {};
+        const command: string[] = Array.isArray(input_.command) ? input_.command : [];
         item.action = { type: 'exec', command: command };
       }
       out.push(item);
     } else if (btype === 'thinking') {
-      const text = String(block.thinking ?? '');
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const text = String((block as AnthropicThinkingBlock).thinking ?? '');
       const reasoning: ResponsesOutputReasoning = {
         id: makeId('rs'),
         type: 'reasoning',

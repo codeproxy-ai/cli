@@ -43,9 +43,13 @@ export async function* translateStream(
   yield translator.createInitialEvent();
 
   for await (const msg of parseSseStream(stream)) {
-    if (isDoneMessage(msg)) break;
+    if (isDoneMessage(msg)) {
+      break;
+    }
     const chunk = safeJsonParse<OpenAiChatStreamChunk>(msg.data);
-    if (!chunk) continue;
+    if (!chunk) {
+      continue;
+    }
     yield* translator.handleChunk(chunk);
   }
 
@@ -108,17 +112,23 @@ class StreamTranslator {
 
   *handleChunk(chunk: OpenAiChatStreamChunk): Generator<ResponsesStreamEvent, void, void> {
     if (chunk.usage) {
-      if (typeof chunk.usage.prompt_tokens === 'number')
+      if (typeof chunk.usage.prompt_tokens === 'number') {
         this.inputTokens = chunk.usage.prompt_tokens;
-      if (typeof chunk.usage.completion_tokens === 'number')
+      }
+      if (typeof chunk.usage.completion_tokens === 'number') {
         this.outputTokens = chunk.usage.completion_tokens;
+      }
       const cached = chunk.usage.prompt_tokens_details?.cached_tokens;
-      if (typeof cached === 'number') this.cachedTokens = cached;
+      if (typeof cached === 'number') {
+        this.cachedTokens = cached;
+      }
     }
 
     const choice = chunk.choices?.[0];
     const delta: OpenAiChatStreamDelta | undefined = choice?.delta;
-    if (!delta) return;
+    if (!delta) {
+      return;
+    }
 
     if (delta.tool_calls?.length) {
       for (const tc of delta.tool_calls) {
@@ -182,7 +192,8 @@ class StreamTranslator {
         });
       }
       this.textBuffer += delta.content;
-      const textContent: { text: string } = this.textItem.content[0];
+      // eslint-disable-next-line no-restricted-syntax -- Narrow union to text content
+      const textContent = this.textItem.content[0] as { text: string };
       textContent.text = this.textBuffer;
       yield this.makeEvent('response.output_text.delta', {
         response_id: this.responseId,

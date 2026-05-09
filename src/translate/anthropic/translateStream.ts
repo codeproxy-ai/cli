@@ -46,7 +46,9 @@ export async function* translateStream(
   yield translator.createInitialEvent();
   for await (const msg of parseSseStream(stream)) {
     const event = parseAnthropicEvent(msg);
-    if (!event) continue;
+    if (!event) {
+      continue;
+    }
     yield* translator.handleEvent(event);
   }
   yield* translator.finalize();
@@ -69,7 +71,9 @@ export async function* translateAnthropicEvents(
 
 function parseAnthropicEvent(msg: SseMessage): AnthropicStreamEvent | undefined {
   const parsed = safeJsonParse<AnthropicStreamEvent>(msg.data);
-  if (!parsed) return undefined;
+  if (!parsed) {
+    return undefined;
+  }
   return parsed;
 }
 
@@ -131,19 +135,22 @@ class StreamTranslator {
   *handleEvent(event: AnthropicStreamEvent): Generator<ResponsesStreamEvent, void, void> {
     switch (event.type) {
       case 'message_start': {
-        const msgStartEvt: Extract<AnthropicStreamEvent, { type: 'message_start' }> = event;
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        const msgStartEvt = event as Extract<AnthropicStreamEvent, { type: 'message_start' }>;
         this.onMessageStart(msgStartEvt);
         return;
       }
       case 'content_block_start':
         {
-          const cbsEvt: Extract<AnthropicStreamEvent, { type: 'content_block_start' }> = event;
+          // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+          const cbsEvt = event as Extract<AnthropicStreamEvent, { type: 'content_block_start' }>;
           yield* this.onContentBlockStart(cbsEvt);
         }
         return;
       case 'content_block_delta':
         {
-          const cbdEvt: Extract<AnthropicStreamEvent, { type: 'content_block_delta' }> = event;
+          // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+          const cbdEvt = event as Extract<AnthropicStreamEvent, { type: 'content_block_delta' }>;
           yield* this.onContentBlockDelta(cbdEvt);
         }
         return;
@@ -151,7 +158,8 @@ class StreamTranslator {
         return;
       case 'message_delta':
         {
-          const msgDeltaEvt: Extract<AnthropicStreamEvent, { type: 'message_delta' }> = event;
+          // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+          const msgDeltaEvt = event as Extract<AnthropicStreamEvent, { type: 'message_delta' }>;
           this.onMessageDelta(msgDeltaEvt);
         }
         return;
@@ -171,12 +179,18 @@ class StreamTranslator {
     }
 
     for (const block of this.blocks.values()) {
-      if (!block.item) continue;
-      if (items.find((item) => item.index === block.outputIndex)) continue;
-      const item: Record<string, unknown> = block.item;
+      if (!block.item) {
+        continue;
+      }
+      if (items.find((item) => item.index === block.outputIndex)) {
+        continue;
+      }
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const item: Record<string, unknown> = block.item as Record<string, unknown>;
       item.status = 'completed';
       if (block.type === 'tool_use') {
-        const call: ResponsesOutputFunctionCall = item;
+        // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+        const call = block.item as ResponsesOutputFunctionCall;
         if (call.name && SHELL_TOOL_NAMES.has(call.name)) {
           call.type = 'local_shell_call';
           const parsed = safeJsonParse<{ command?: string[] }>(call.arguments ?? '');
@@ -311,13 +325,17 @@ class StreamTranslator {
     event: Extract<AnthropicStreamEvent, { type: 'content_block_delta' }>,
   ): Generator<ResponsesStreamEvent, void, void> {
     const block = this.blocks.get(event.index);
-    if (!block) return;
+    if (!block) {
+      return;
+    }
     const delta: Record<string, unknown> = event.delta;
-    const dtype: string | undefined = delta.type;
+    const dtype: string = typeof delta.type === 'string' ? delta.type : '';
 
     if (dtype === 'text_delta') {
       const text = String(delta.text ?? '');
-      if (!text) return;
+      if (!text) {
+        return;
+      }
       this.textBuffer += text;
       // text content available via this.textItem.content[0]
       yield this.makeEvent('response.output_text.delta', {
@@ -332,10 +350,15 @@ class StreamTranslator {
 
     if (dtype === 'thinking_delta') {
       const thinking = String(delta.thinking ?? '');
-      if (!thinking) return;
+      if (!thinking) {
+        return;
+      }
       block.buffer += thinking;
-      const item: ResponsesOutputReasoning | undefined = block.item;
-      if (item) item.content[0].text = block.buffer;
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const item = block.item as ResponsesOutputReasoning | undefined;
+      if (item) {
+        item.content[0].text = block.buffer;
+      }
       yield this.makeEvent('response.reasoning_text.delta', {
         response_id: this.responseId,
         item_id: item?.id ?? '',
@@ -348,10 +371,15 @@ class StreamTranslator {
 
     if (dtype === 'input_json_delta') {
       const partial = String(delta.partial_json ?? '');
-      if (!partial) return;
+      if (!partial) {
+        return;
+      }
       block.buffer += partial;
-      const item: ResponsesOutputFunctionCall | undefined = block.item;
-      if (item) item.arguments = block.buffer;
+      // eslint-disable-next-line no-restricted-syntax -- TypeScript narrowing requires this cast
+      const item = block.item as ResponsesOutputFunctionCall | undefined;
+      if (item) {
+        item.arguments = block.buffer;
+      }
       yield this.makeEvent('response.function_call_arguments.delta', {
         response_id: this.responseId,
         item_id: item?.id ?? '',
@@ -368,7 +396,9 @@ class StreamTranslator {
     }
     const eventDelta: { stop_reason?: string } | undefined = event.delta;
     const stopReason = eventDelta?.stop_reason;
-    if (stopReason) this.stopReason = stopReason;
+    if (stopReason) {
+      this.stopReason = stopReason;
+    }
     return;
   }
 

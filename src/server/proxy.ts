@@ -24,8 +24,12 @@ function fmtDuration(ms: number): string {
   // Server
   // ==============================================================================
 
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`;
+  }
+  if (ms < 60000) {
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
   const minutes = Math.floor(ms / 60000);
   const seconds = Math.round((ms % 60000) / 1000);
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
@@ -72,7 +76,9 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
   const durationHistory: number[] = [];
   function updateRollingAverage(ms: number) {
     durationHistory.push(ms);
-    if (durationHistory.length > 50) durationHistory.shift();
+    if (durationHistory.length > 50) {
+      durationHistory.shift();
+    }
     return durationHistory.reduce((sum, val) => sum + val, 0) / durationHistory.length;
   }
 
@@ -85,7 +91,9 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
   let statusTimerId: ReturnType<typeof setInterval> | null = null;
 
   function drawStatusLine() {
-    if (activeRequests.size === 0) return;
+    if (activeRequests.size === 0) {
+      return;
+    }
     const parts = Array.from(activeRequests.entries()).map(([, req]) => {
       const elapsed = Date.now() - req.startTime;
       return `[${fmtDuration(elapsed)}]`;
@@ -98,7 +106,9 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
       const id = `${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
       activeRequests.set(id, { method, url, startTime: Date.now() });
       drawStatusLine();
-      if (!statusTimerId) statusTimerId = setInterval(drawStatusLine, 150);
+      if (!statusTimerId) {
+        statusTimerId = setInterval(drawStatusLine, 150);
+      }
       return id;
     },
     remove(id: string) {
@@ -133,12 +143,15 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
     const reqHeaders = headersInitToObject(init?.headers);
     let reqBody: unknown = undefined;
     if (init?.body != null) {
-      if (typeof init.body === 'string') reqBody = tryParseJson(init.body);
-      else if (init.body instanceof ArrayBuffer)
+      if (typeof init.body === 'string') {
+        reqBody = tryParseJson(init.body);
+      } else if (init.body instanceof ArrayBuffer) {
         reqBody = tryParseJson(new TextDecoder().decode(init.body));
-      else if (ArrayBuffer.isView(init.body))
+      } else if (ArrayBuffer.isView(init.body)) {
         reqBody = tryParseJson(new TextDecoder().decode(init.body));
-      else reqBody = String(init.body);
+      } else {
+        reqBody = String(init.body);
+      }
     }
     upstreamCapture.request = { url, method, headers: reqHeaders, body: reqBody };
 
@@ -184,7 +197,9 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         `cached=${stats.cachedTokens}`,
         `billed=${billedTokens}`,
       ];
-      if (stats.cacheCreationTokens > 0) parts.push(`cache_creation=${stats.cacheCreationTokens}`);
+      if (stats.cacheCreationTokens > 0) {
+        parts.push(`cache_creation=${stats.cacheCreationTokens}`);
+      }
       const avg = updateRollingAverage(durationMs);
       const ratio = avg > 0 ? durationMs / avg : 1;
       const color = ratio < 0.8 ? '\x1b[32m' : ratio < 1.5 ? '\x1b[33m' : '\x1b[31m';
@@ -220,6 +235,7 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
       }, timeoutMs);
     }
 
+    // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
     try {
       await handleRequest(req, res, {
         apiFetch,
@@ -233,6 +249,7 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
       });
     } catch (err) {
       logger?.error('[proxy-error]', err);
+      // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
       try {
         if (!res.headersSent) {
           res.writeHead(500, { 'content-type': 'application/json' });
@@ -242,14 +259,17 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         // ignore
       }
     } finally {
-      if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+      }
     }
   });
 
   return new Promise((resolve, reject) => {
     server.listen(port, host, () => {
       const actualPort = (() => {
-        const addr: { port: number } = server.address();
+        // eslint-disable-next-line no-restricted-syntax -- net.Server.address() returns string | AddressInfo | null
+        const addr = server.address() as { port: number } | null;
         return addr.port;
       })();
       const url = `http://${host}:${actualPort}`;
@@ -264,7 +284,9 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         close: () =>
           new Promise((res) => {
             server.close((err) => {
-              if (err) logger?.warn('Error closing server:', err);
+              if (err) {
+                logger?.warn('Error closing server:', err);
+              }
               res();
             });
           }),
@@ -296,7 +318,9 @@ async function handleRequest(
     requestTracker: { add: (method: string, url: string) => string; remove: (id: string) => void };
   },
 ): Promise<void> {
-  if (opts.cors) setCorsHeaders(res);
+  if (opts.cors) {
+    setCorsHeaders(res);
+  }
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -324,6 +348,7 @@ async function handleRequest(
   const requestStart = Date.now();
   const requestId = opts.requestTracker.add(method, urlPath);
 
+  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
     const response = await opts.apiFetch(`http://local${urlPath}`, {
       method,
@@ -350,6 +375,7 @@ async function handleRequest(
       }
     }
     if (response.status >= 400) {
+      // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
       try {
         const filePath = saveErrorDump({
           method: opts.method,
@@ -376,7 +402,9 @@ async function handleRequest(
     response.headers.forEach((value, key) => {
       outHeaders[key] = value;
     });
-    if (opts.cors) Object.assign(outHeaders, corsHeaders());
+    if (opts.cors) {
+      Object.assign(outHeaders, corsHeaders());
+    }
 
     res.writeHead(response.status, outHeaders);
 
@@ -385,7 +413,8 @@ async function handleRequest(
       return;
     }
 
-    const typedBody: import('node:stream/web').ReadableStream<Uint8Array> = response.body!;
+    // eslint-disable-next-line no-restricted-syntax -- fetch response.body is not typed as node stream
+    const typedBody = response.body! as unknown as import('stream/web').ReadableStream<Uint8Array>;
     const nodeStream = Readable.fromWeb(typedBody);
     nodeStream.pipe(res);
     await new Promise<void>((resolve, reject) => {
@@ -414,7 +443,9 @@ function readIncomingBody(req: IncomingMessage): Promise<Buffer> {
 function flattenIncomingHeaders(headers: IncomingMessage['headers']): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
-    if (value == null) continue;
+    if (value == null) {
+      continue;
+    }
     out[key.toLowerCase()] = Array.isArray(value) ? value.join(', ') : String(value);
   }
   return out;
@@ -430,7 +461,9 @@ function headersToObject(headers: Headers): Record<string, string> {
 
 function setCorsHeaders(res: ServerResponse): void {
   const headers = corsHeaders();
-  for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
+  for (const [key, value] of Object.entries(headers)) {
+    res.setHeader(key, value);
+  }
 }
 
 function corsHeaders(): Record<string, string> {
@@ -444,7 +477,10 @@ function corsHeaders(): Record<string, string> {
 }
 
 function tryParseJson(str: string | undefined | null): unknown {
-  if (!str) return str ?? null;
+  if (!str) {
+    return str ?? null;
+  }
+  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
     return JSON.parse(str);
   } catch {
@@ -454,7 +490,9 @@ function tryParseJson(str: string | undefined | null): unknown {
 
 function headersInitToObject(headersInit: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
-  if (!headersInit) return out;
+  if (!headersInit) {
+    return out;
+  }
   if (typeof Headers !== 'undefined' && headersInit instanceof Headers) {
     headersInit.forEach((value, key) => {
       out[key.toLowerCase()] = value;
@@ -462,10 +500,14 @@ function headersInitToObject(headersInit: HeadersInit | undefined): Record<strin
     return out;
   }
   if (Array.isArray(headersInit)) {
-    for (const [key, value] of headersInit) out[String(key).toLowerCase()] = String(value);
+    for (const [key, value] of headersInit) {
+      out[String(key).toLowerCase()] = String(value);
+    }
     return out;
   }
-  for (const [key, value] of Object.entries(headersInit)) out[key.toLowerCase()] = String(value);
+  for (const [key, value] of Object.entries(headersInit)) {
+    out[key.toLowerCase()] = String(value);
+  }
   return out;
 }
 
@@ -499,10 +541,17 @@ function saveErrorDump(dump: {
 }
 
 function redactAuth(headers: Record<string, string> | undefined): void {
-  if (!headers) return;
+  if (!headers) {
+    return;
+  }
   for (const key of Object.keys(headers)) {
     const lowerKey = key.toLowerCase();
-    if (lowerKey === 'authorization' || k === 'x-api-key' || k === 'api-key' || k === 'cookie') {
+    if (
+      lowerKey === 'authorization' ||
+      lowerKey === 'x-api-key' ||
+      lowerKey === 'api-key' ||
+      lowerKey === 'cookie'
+    ) {
       headers[key] = '[REDACTED]';
     }
   }

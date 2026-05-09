@@ -25,8 +25,11 @@ export async function loadConfigFile(
   searchFrom: string = process.cwd(),
 ): Promise<ConfigFile | null> {
   const configPath = findConfigPath(searchFrom);
-  if (!configPath) return null;
+  if (!configPath) {
+    return null;
+  }
 
+  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
     if (configPath.endsWith('.json')) {
       const content = readFileSync(configPath, 'utf-8');
@@ -79,7 +82,8 @@ export function validateConfig(config: unknown): { valid: boolean; error?: strin
     return { valid: false, error: 'Config must be an object' };
   }
 
-  const cfg: Record<string, unknown> = config;
+  // eslint-disable-next-line no-restricted-syntax -- safe cast from object to Record
+  const cfg: Record<string, unknown> = config as Record<string, unknown>;
 
   if (typeof cfg.version !== 'string') {
     return { valid: false, error: 'Config must have a version string' };
@@ -93,7 +97,8 @@ export function validateConfig(config: unknown): { valid: boolean; error?: strin
     return { valid: false, error: 'Config must have an upstreams object' };
   }
 
-  const upstreams: Record<string, unknown> = cfg.upstreams;
+  // eslint-disable-next-line no-restricted-syntax -- safe cast from object to Record
+  const upstreams: Record<string, unknown> = cfg.upstreams as Record<string, unknown>;
 
   if (!(cfg.currentUpstream in upstreams)) {
     return {
@@ -123,7 +128,8 @@ export function validateUpstreamConfig(upstream: unknown): {
     return { valid: false, error: 'Upstream config must be an object' };
   }
 
-  const cfg: Record<string, unknown> = upstream;
+  // eslint-disable-next-line no-restricted-syntax -- safe cast from object to Record
+  const cfg: Record<string, unknown> = upstream as Record<string, unknown>;
 
   if (cfg.format !== undefined) {
     if (typeof cfg.format !== 'string') {
@@ -180,7 +186,9 @@ export function validateUpstreamConfig(upstream: unknown): {
  */
 export function getCurrentUpstreamConfig(config: ConfigFile): UpstreamConfig | null {
   const upstream = config.upstreams[config.currentUpstream];
-  if (!upstream) return null;
+  if (!upstream) {
+    return null;
+  }
   return upstream;
 }
 

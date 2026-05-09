@@ -31,7 +31,9 @@ export function translateResponse(
   if (message?.tool_calls?.length) {
     for (const tc of message.tool_calls) {
       const item = mapToolCallToOutput(tc);
-      if (item) output.push(item);
+      if (item) {
+        output.push(item);
+      }
     }
   }
 
@@ -71,10 +73,14 @@ export function translateResponse(
 
 function mapToolCallToOutput(tc: OpenAiChatToolCall): ResponsesOutputFunctionCall | undefined {
   const name = tc.function?.name;
-  if (!name) return undefined;
+  if (!name) {
+    return undefined;
+  }
   const callId = tc.id ?? makeId('call');
   let args = tc.function?.arguments ?? '';
-  if (typeof args !== 'string') args = jsonStringifySafe(args ?? {});
+  if (typeof args !== 'string') {
+    args = jsonStringifySafe(args ?? {});
+  }
 
   const item: ResponsesOutputFunctionCall = {
     id: callId,

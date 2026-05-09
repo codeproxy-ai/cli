@@ -7,7 +7,9 @@ function makeByteStream(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      for (const c of chunks) controller.enqueue(encoder.encode(c));
+      for (const c of chunks) {
+        controller.enqueue(encoder.encode(c));
+      }
       controller.close();
     },
   });
@@ -15,7 +17,9 @@ function makeByteStream(chunks: string[]): ReadableStream<Uint8Array> {
 
 async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
   const out: T[] = [];
-  for await (const item of gen) out.push(item);
+  for await (const item of gen) {
+    out.push(item);
+  }
   return out;
 }
 

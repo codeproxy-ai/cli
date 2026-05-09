@@ -71,17 +71,23 @@ function parseArgs(argv: string[]): CliArgs {
         out.cors = false;
         break;
       default:
-        if (arg.startsWith('--upstream-format='))
+        if (arg.startsWith('--upstream-format=')) {
           out.upstreamFormat = arg.slice('--upstream-format='.length);
-        else if (arg.startsWith('--port=')) out.port = Number(arg.slice('--port='.length));
-        else if (arg.startsWith('--host=')) out.host = arg.slice('--host='.length);
-        else if (arg.startsWith('--base-url=')) out.baseUrl = arg.slice('--base-url='.length);
-        else if (arg.startsWith('--api-version='))
+        } else if (arg.startsWith('--port=')) {
+          out.port = Number(arg.slice('--port='.length));
+        } else if (arg.startsWith('--host=')) {
+          out.host = arg.slice('--host='.length);
+        } else if (arg.startsWith('--base-url=')) {
+          out.baseUrl = arg.slice('--base-url='.length);
+        } else if (arg.startsWith('--api-version=')) {
           out.apiVersion = arg.slice('--api-version='.length);
-        else if (arg.startsWith('--apikey=')) out.apikey = arg.slice('--apikey='.length);
-        else if (arg.startsWith('--model=')) out.model = arg.slice('--model='.length);
-        else if (arg.startsWith('--config=')) out.config = arg.slice('--config='.length);
-        else {
+        } else if (arg.startsWith('--apikey=')) {
+          out.apikey = arg.slice('--apikey='.length);
+        } else if (arg.startsWith('--model=')) {
+          out.model = arg.slice('--model='.length);
+        } else if (arg.startsWith('--config=')) {
+          out.config = arg.slice('--config='.length);
+        } else {
           console.error(`Unknown argument: ${arg}`);
           out.help = true;
         }
@@ -152,6 +158,7 @@ async function loadConfigFile(configPath: string): Promise<ConfigFile> {
     process.exit(1);
   }
 
+  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
     const content = readFileSync(configPath, 'utf-8');
     const parsed: ConfigFile = JSON.parse(content);
@@ -167,8 +174,6 @@ async function loadConfigAndApplyOverrides(
   overrides: CliArgs,
 ): Promise<StartProxyOptions> {
   const config = await loadConfigFile(configPath);
-
-  const configRecord: Record<string, unknown> = config;
 
   const validation = validateConfig(config);
   if (!validation.valid) {
@@ -188,12 +193,19 @@ async function loadConfigAndApplyOverrides(
   );
   console.log(`Model: ${upstreamConfig.model || '(not set)'}`);
   const mergedEffort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
-  if (mergedEffort) console.log(`Reasoning effort: ${mergedEffort}`);
+  if (mergedEffort) {
+    console.log(`Reasoning effort: ${mergedEffort}`);
+  }
   const mergedHeaders: Record<string, string> = { ...(config.headers ?? {}) };
-  if (upstreamConfig.headers) Object.assign(mergedHeaders, upstreamConfig.headers);
-  if (mergedHeaders.authorization) mergedHeaders.authorization = '"[REDACTED]"';
-  if (Object.keys(mergedHeaders).length > 0)
+  if (upstreamConfig.headers) {
+    Object.assign(mergedHeaders, upstreamConfig.headers);
+  }
+  if (mergedHeaders.authorization) {
+    mergedHeaders.authorization = '"[REDACTED]"';
+  }
+  if (Object.keys(mergedHeaders).length > 0) {
     console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
+  }
   // ==============================================================================
   // Proxy Launch
   // ==============================================================================
@@ -207,8 +219,10 @@ async function loadConfigAndApplyOverrides(
     port:
       overrides.port !== undefined
         ? overrides.port
-        : configRecord.port
-          ? Number(configRecord.port)
+        : // eslint-disable-next-line no-restricted-syntax -- access dynamic config key
+          (config as unknown as Record<string, unknown>).port
+          ? // eslint-disable-next-line no-restricted-syntax -- access dynamic config key
+            Number((config as unknown as Record<string, unknown>).port)
           : upstreamConfig.port
             ? Number(upstreamConfig.port)
             : undefined,
@@ -239,8 +253,12 @@ async function loadConfigAndApplyOverrides(
     const fbConfig = config.upstreams[upstreamConfig.fallback];
     if (fbConfig) {
       const fbHeaders: Record<string, string> = { ...(config.headers ?? {}) };
-      if (fbConfig.headers) Object.assign(fbHeaders, fbConfig.headers);
-      if (fbConfig.apiKey) fbHeaders.authorization = `Bearer ${fbConfig.apiKey}`;
+      if (fbConfig.headers) {
+        Object.assign(fbHeaders, fbConfig.headers);
+      }
+      if (fbConfig.apiKey) {
+        fbHeaders.authorization = `Bearer ${fbConfig.apiKey}`;
+      }
       const fbFormat: UpstreamFormat | undefined = fbConfig.format;
       options.fallbackUpstream = {
         baseUrl: fbConfig.baseUrl,
@@ -275,7 +293,8 @@ async function main(): Promise<void> {
   if (args.config) {
     options = await loadConfigAndApplyOverrides(args.config, args);
   } else if (args.baseUrl) {
-    const upstreamFormat: UpstreamFormat | undefined = args.upstreamFormat;
+    // eslint-disable-next-line no-restricted-syntax -- parsed string may not match union type
+    const upstreamFormat = args.upstreamFormat as UpstreamFormat | undefined;
     options = {
       upstreamFormat,
       baseUrl: args.baseUrl,
@@ -297,6 +316,7 @@ async function main(): Promise<void> {
   const proxy = await startProxy(options);
   const shutdown = async (signal: string) => {
     console.log(`\nReceived ${signal}, shutting down...`);
+    // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
     try {
       await proxy.close();
     } finally {

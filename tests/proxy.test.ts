@@ -10,7 +10,8 @@ function mockUpstream(): {
   let body = '';
   const impl: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
     body = String(init?.body ?? '');
-    const hdrs: Record<string, string> = init?.headers ?? {};
+    // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
+    const hdrs: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
     headers = Object.fromEntries(Object.entries(hdrs));
     return new Response(
       JSON.stringify({
