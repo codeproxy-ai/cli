@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { translateResponse } from '../src/translate/openai/translateResponse.js';
 
+// ==============================================================================
+// translateResponse (Zai -> Responses)
+// ==============================================================================
+
 describe('translateResponse (Zai -> Responses)', () => {
   it('maps text + tool_calls into output items', () => {
     const res = translateResponse({
@@ -38,12 +42,15 @@ describe('translateResponse (Zai -> Responses)', () => {
     expect(res.status).toBe('completed');
     expect(res.usage).toMatchObject({ input_tokens: 10, output_tokens: 3, total_tokens: 13 });
 
-    const toolCall = res.output.find((o) => (o as { type: string }).type === 'function_call');
+    const toolCall = res.output.find(
+      (item: Record<string, unknown>) => item.type === 'function_call',
+    );
     expect(toolCall).toBeDefined();
-    expect((toolCall as { name: string }).name).toBe('search');
-    expect((toolCall as { arguments: string }).arguments).toBe('{"q": "foo"}');
+    const tc: Record<string, unknown> = toolCall;
+    expect(tc.name).toBe('search');
+    expect(tc.arguments).toBe('{"q": "foo"}');
 
-    const message = res.output.find((o) => (o as { type: string }).type === 'message');
+    const message = res.output.find((item: Record<string, unknown>) => item.type === 'message');
     expect(message).toBeDefined();
   });
 
@@ -79,7 +86,7 @@ describe('translateResponse (Zai -> Responses)', () => {
       },
     });
 
-    const item = res.output[0] as { type: string; action?: { command: string[] } };
+    const item: { type: string; action?: { command: string[] } } = res.output[0];
     expect(item.type).toBe('local_shell_call');
     expect(item.action?.command).toEqual(['ls', '-la']);
   });
@@ -116,7 +123,7 @@ describe('translateResponse (Zai -> Responses)', () => {
       },
     });
 
-    const item = res.output[0] as { type: string };
+    const item: { type: string } = res.output[0];
     expect(item.type).toBe('local_shell_call');
   });
 
@@ -144,38 +151,45 @@ describe('translateResponse (Zai -> Responses)', () => {
     });
 
     expect(res.output.length).toBe(1);
-    const message = res.output[0] as { type: string; role: string; content: Array<{ type: string; text: string }> };
+    const message: {
+      type: string;
+      role: string;
+      content: Array<{ type: string; text: string }>;
+    } = res.output[0];
     expect(message.type).toBe('message');
     expect(message.role).toBe('assistant');
     expect(message.content[0].text).toBe('Hello, how can I help you?');
   });
 
   it('uses custom responseId, createdAt, and model when provided', () => {
-    const res = translateResponse({
-      id: 'chatcmpl-custom',
-      object: 'chat.completion',
-      created: 1677652288,
-      model: 'zai-gpt-3.5',
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'test',
+    const res = translateResponse(
+      {
+        id: 'chatcmpl-custom',
+        object: 'chat.completion',
+        created: 1677652288,
+        model: 'zai-gpt-3.5',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'test',
+            },
+            finish_reason: 'stop',
           },
-          finish_reason: 'stop',
+        ],
+        usage: {
+          prompt_tokens: 1,
+          completion_tokens: 1,
+          total_tokens: 2,
         },
-      ],
-      usage: {
-        prompt_tokens: 1,
-        completion_tokens: 1,
-        total_tokens: 2,
       },
-    }, {
-      responseId: 'custom_id',
-      createdAt: 1234567890,
-      model: 'custom_model',
-    });
+      {
+        responseId: 'custom_id',
+        createdAt: 1234567890,
+        model: 'custom_model',
+      },
+    );
 
     expect(res.id).toBe('custom_id');
     expect(res.created_at).toBe(1234567890);

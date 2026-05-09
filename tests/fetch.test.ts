@@ -3,7 +3,7 @@ import { createResponsesFetch } from '../src/fetch.js';
 import { encodeSseEvent, parseSseStream } from '../src/utils/sse.js';
 
 function mockAnthropicStream(events: Array<{ type: string; data: unknown }>): typeof fetch {
-  return (async () => {
+  return async () => {
     const encoder = new TextEncoder();
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -15,7 +15,7 @@ function mockAnthropicStream(events: Array<{ type: string; data: unknown }>): ty
       status: 200,
       headers: { 'content-type': 'text/event-stream' },
     });
-  }) as unknown as typeof fetch;
+  };
 }
 
 describe('createResponsesFetch', () => {
@@ -24,12 +24,11 @@ describe('createResponsesFetch', () => {
     let capturedBody = '';
     let capturedHeaders: Record<string, string> = {};
 
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const upstream: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       capturedUrl = typeof input === 'string' ? input : input.toString();
       capturedBody = String(init?.body ?? '');
-      capturedHeaders = Object.fromEntries(
-        Object.entries((init?.headers ?? {}) as Record<string, string>),
-      );
+      const hdrs_capture: Record<string, string> = init?.headers ?? {};
+      capturedHeaders = Object.fromEntries(Object.entries(hdrs_capture));
       return new Response(
         JSON.stringify({
           id: 'msg_1',
@@ -41,9 +40,13 @@ describe('createResponsesFetch', () => {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
-    const fetchImpl = createResponsesFetch({ upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages', fetch: upstream });
+    const fetchImpl = createResponsesFetch({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      fetch: upstream,
+    });
 
     const res = await fetchImpl('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -55,7 +58,7 @@ describe('createResponsesFetch', () => {
     });
 
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { output: unknown[]; usage: { total_tokens: number } };
+    const json: { output: unknown[]; usage: { total_tokens: number } } = await res.json();
     expect(json.usage.total_tokens).toBe(5);
 
     expect(capturedUrl).toBe('https://api.anthropic.com/v1/messages');
@@ -69,10 +72,9 @@ describe('createResponsesFetch', () => {
 
   it('passes an existing x-api-key header through untouched', async () => {
     let captured: Record<string, string> = {};
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      captured = Object.fromEntries(
-        Object.entries((init?.headers ?? {}) as Record<string, string>),
-      );
+    const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const hdrs_cap2: Record<string, string> = init?.headers ?? {};
+      captured = Object.fromEntries(Object.entries(hdrs_cap2));
       return new Response(
         JSON.stringify({
           id: 'x',
@@ -84,9 +86,13 @@ describe('createResponsesFetch', () => {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
-    const fetchImpl = createResponsesFetch({ upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages', fetch: upstream });
+    const fetchImpl = createResponsesFetch({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      fetch: upstream,
+    });
     await fetchImpl('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { 'x-api-key': 'explicit-key' },
@@ -97,21 +103,22 @@ describe('createResponsesFetch', () => {
 
   it('drops incoming user-agent and forwards defaultHeaders user-agent to upstream', async () => {
     let captured: Record<string, string> = {};
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      captured = Object.fromEntries(
-        Object.entries((init?.headers ?? {}) as Record<string, string>),
-      );
+    const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const hdrs_cap2: Record<string, string> = init?.headers ?? {};
+      captured = Object.fromEntries(Object.entries(hdrs_cap2));
       return new Response(
         JSON.stringify({
           id: 'c1',
           object: 'chat.completion',
           model: 'kimi-for-coding',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+          choices: [
+            { index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' },
+          ],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -173,8 +180,15 @@ describe('createResponsesFetch', () => {
       },
       { type: 'message_stop', data: { type: 'message_stop' } },
     ]);
+    // ==============================================================================
+    // Responses JSON translation
+    // ==============================================================================
 
-    const fetchImpl = createResponsesFetch({ upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages', fetch: upstream });
+    const fetchImpl = createResponsesFetch({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      fetch: upstream,
+    });
 
     const res = await fetchImpl('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -193,7 +207,7 @@ describe('createResponsesFetch', () => {
         parsedEvents.push('DONE');
         break;
       }
-      const payload = JSON.parse(msg.data) as { type: string; delta?: string };
+      const payload: { type: string; delta?: string } = JSON.parse(msg.data);
       parsedEvents.push(payload.type);
       if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
         textDelta += payload.delta;
@@ -206,14 +220,15 @@ describe('createResponsesFetch', () => {
 
   it('forwards non-/responses paths to passthrough fetch', async () => {
     let passthroughCalled = false;
-    const passthrough: typeof fetch = (async () => {
+    const passthrough: typeof fetch = async () => {
       passthroughCalled = true;
       return new Response('ok');
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages',
-      fetch: (async () => new Response('{}')) as unknown as typeof fetch,
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      fetch: async () => new Response('{}'),
       passthroughFetch: passthrough,
     });
 
@@ -226,348 +241,397 @@ describe('createResponsesFetch', () => {
   });
 
   it('translates upstream errors to OpenAI-style error JSON', async () => {
-    const upstream: typeof fetch = (async () => {
+    const upstream: typeof fetch = async () => {
       return new Response(JSON.stringify({ error: { message: 'bad key' } }), {
         status: 401,
         headers: { 'content-type': 'application/json' },
       });
-    }) as unknown as typeof fetch;
+    };
 
-    const fetchImpl = createResponsesFetch({ upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages', fetch: upstream });
+    const fetchImpl = createResponsesFetch({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      fetch: upstream,
+    });
     const res = await fetchImpl('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { authorization: 'Bearer x' },
       body: JSON.stringify({ model: 'claude-sonnet-4-5', input: 'x' }),
     });
     expect(res.status).toBe(401);
-    const body = (await res.json()) as { error: { message: string } };
+    const body: { error: { message: string } } = await res.json();
     expect(body.error.message).toContain('bad key');
   });
 });
 
-  it('drops image_url parts from user messages when dropImages is true', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-123',
-          object: 'chat.completion',
-          created: 1677652288,
-          model: 'deepseek-v4-flash',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://api.deepseek.com/v1/chat/completions',
-      fetch: upstream,
-      dropImages: true,
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({
+it('drops image_url parts from user messages when dropImages is true', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-123',
+        object: 'chat.completion',
+        created: 1677652288,
         model: 'deepseek-v4-flash',
-        input: [
-          { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'desc' }, { type: 'input_image', image_url: 'https://example.com/img.png' }] },
-        ],
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
       }),
-    });
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    const upstreamBody = JSON.parse(capturedBody);
-    const userMsg = upstreamBody.messages.find((m: any) => m.role === 'user');
-    // Should contain only the text part, image dropped
-    expect(Array.isArray(userMsg.content)).toBe(true);
-    expect(userMsg.content).toHaveLength(1);
-    expect(userMsg.content[0].type).toBe('text');
-    expect(userMsg.content[0].text).toBe('desc');
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://api.deepseek.com/v1/chat/completions',
+    fetch: upstream,
+    dropImages: true,
   });
 
-  it('drops image_url parts from assistant messages when dropImages is true', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-456',
-          object: 'chat.completion',
-          created: 1677652288,
-          model: 'deepseek-v4-flash',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({
+      model: 'deepseek-v4-flash',
+      input: [
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'desc' },
+            { type: 'input_image', image_url: 'https://example.com/img.png' },
+          ],
+        },
+      ],
+    }),
+  });
 
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://my-proxy.com/v1/chat/completions',
-      fetch: upstream,
-      dropImages: true,
-    });
+  const upstreamBody = JSON.parse(capturedBody);
+  const userMsg = upstreamBody.messages.find((msg: { role: string }) => msg.role === 'user');
+  // Should contain only the text part, image dropped
+  expect(Array.isArray(userMsg.content)).toBe(true);
+  expect(userMsg.content).toHaveLength(1);
+  expect(userMsg.content[0].type).toBe('text');
+  expect(userMsg.content[0].text).toBe('desc');
+});
+// ==============================================================================
+// Image dropping & format defaults
+// ==============================================================================
 
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({
-        model: 'test-model',
-        input: [
-          { type: 'message', role: 'user', content: 'hello' },
-          { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'sure' }, { type: 'input_image', image_url: 'data:image/png;base64,ABC' }] },
-        ],
+it('drops image_url parts from assistant messages when dropImages is true', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-456',
+        object: 'chat.completion',
+        created: 1677652288,
+        model: 'deepseek-v4-flash',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
       }),
-    });
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    const upstreamBody = JSON.parse(capturedBody);
-    const assistantMsg = upstreamBody.messages.find((m: any) => m.role === 'assistant');
-    // Assistant messages get concatenated to plain string (image parts dropped)
-    expect(typeof assistantMsg.content).toBe('string');
-    expect(assistantMsg.content).toBe('sure');
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://my-proxy.com/v1/chat/completions',
+    fetch: upstream,
+    dropImages: true,
   });
 
-  it('defaults to openai-chat when upstreamFormat cannot be inferred from baseUrl', async () => {
-    let capturedUrl = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL) => {
-      capturedUrl = typeof input === 'string' ? input : input.toString();
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-1',
-          object: 'chat.completion',
-          created: 1,
-          model: 'glm-5.1',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      baseUrl: 'https://integrate.api.nvidia.com/v1',
-      fetch: upstream,
-    });
-
-    const res = await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'glm-5.1', input: [{ type: 'message', role: 'user', content: 'hi' }] }),
-    });
-
-    expect(res.status).toBe(200);
-    expect(capturedUrl).toBe('https://integrate.api.nvidia.com/v1/chat/completions');
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({
+      model: 'test-model',
+      input: [
+        { type: 'message', role: 'user', content: 'hello' },
+        {
+          type: 'message',
+          role: 'assistant',
+          content: [
+            { type: 'output_text', text: 'sure' },
+            { type: 'input_image', image_url: 'data:image/png;base64,ABC' },
+          ],
+        },
+      ],
+    }),
   });
 
-  it('injects reasoning_effort for openai-chat upstream', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-r1', object: 'chat.completion', created: 1, model: 'deepseek-v4-pro',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
+  const upstreamBody = JSON.parse(capturedBody);
+  const assistantMsg = upstreamBody.messages.find(
+    (msg: { role: string }) => msg.role === 'assistant',
+  );
+  // Assistant messages get concatenated to plain string (image parts dropped)
+  expect(typeof assistantMsg.content).toBe('string');
+  expect(assistantMsg.content).toBe('sure');
+});
 
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://api.deepseek.com/v1',
-      fetch: upstream,
-      reasoning_effort: 'high',
-    });
+it('defaults to openai-chat when upstreamFormat cannot be inferred from baseUrl', async () => {
+  let capturedUrl = '';
+  const upstream: typeof fetch = async (input: RequestInfo | URL) => {
+    capturedUrl = typeof input === 'string' ? input : input.toString();
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        object: 'chat.completion',
+        created: 1,
+        model: 'glm-5.1',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'deepseek-v4-pro', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.reasoning_effort).toBe('high');
+  const fetchImpl = createResponsesFetch({
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    fetch: upstream,
   });
 
-  it('injects thinking for openai-chat upstream', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-t1', object: 'chat.completion', created: 1, model: 'glm-5.1',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-      fetch: upstream,
-      thinking: { type: 'enabled' },
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'glm-5.1', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.thinking).toEqual({ type: 'enabled' });
+  const res = await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({
+      model: 'glm-5.1',
+      input: [{ type: 'message', role: 'user', content: 'hi' }],
+    }),
   });
 
-  it('injects thinking:disabled for anthropic upstream when reasoning_effort is minimal', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'msg_1', type: 'message', role: 'assistant', model: 'claude-sonnet-4-7',
-          content: [{ type: 'text', text: 'ok' }],
-          usage: { input_tokens: 1, output_tokens: 1 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
+  expect(res.status).toBe(200);
+  expect(capturedUrl).toBe('https://integrate.api.nvidia.com/v1/chat/completions');
+});
 
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'anthropic',
-      baseUrl: 'https://api.anthropic.com/v1/messages',
-      fetch: upstream,
-      reasoning_effort: 'minimal',
-    });
+it('injects reasoning_effort for openai-chat upstream', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-r1',
+        object: 'chat.completion',
+        created: 1,
+        model: 'deepseek-v4-pro',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.thinking).toEqual({ type: 'disabled' });
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://api.deepseek.com/v1',
+    fetch: upstream,
+    reasoning_effort: 'high',
   });
 
-  it('injects thinking:enabled with budget for anthropic upstream when reasoning_effort is high', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'msg_2', type: 'message', role: 'assistant', model: 'claude-sonnet-4-7',
-          content: [{ type: 'text', text: 'ok' }],
-          usage: { input_tokens: 1, output_tokens: 1 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'anthropic',
-      baseUrl: 'https://api.anthropic.com/v1/messages',
-      fetch: upstream,
-      reasoning_effort: 'high',
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.thinking).toEqual({ type: 'enabled', budget_tokens: 32768 });
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'deepseek-v4-pro', input: 'hello' }),
   });
 
-  it('injects raw thinking config for anthropic upstream when thinking is provided (overrides reasoning_effort)', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'msg_3', type: 'message', role: 'assistant', model: 'claude-sonnet-4-7',
-          content: [{ type: 'text', text: 'ok' }],
-          usage: { input_tokens: 1, output_tokens: 1 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.reasoning_effort).toBe('high');
+});
 
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'anthropic',
-      baseUrl: 'https://api.anthropic.com/v1/messages',
-      fetch: upstream,
-      reasoning_effort: 'high',
-      thinking: { type: 'disabled' },
-    });
+it('injects thinking for openai-chat upstream', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-t1',
+        object: 'chat.completion',
+        created: 1,
+        model: 'glm-5.1',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    // thinking should win over reasoning_effort
-    expect(upstreamBody.thinking).toEqual({ type: 'disabled' });
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    fetch: upstream,
+    thinking: { type: 'enabled' },
   });
 
-  it('does not inject reasoning_effort when not configured', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-nr', object: 'chat.completion', created: 1, model: 'deepseek-v4-flash',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://api.deepseek.com/v1',
-      fetch: upstream,
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({ model: 'deepseek-v4-flash', input: 'hello' }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.reasoning_effort).toBeUndefined();
-    expect(upstreamBody.thinking).toBeUndefined();
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'glm-5.1', input: 'hello' }),
   });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.thinking).toEqual({ type: 'enabled' });
+});
+
+it('injects thinking:disabled for anthropic upstream when reasoning_effort is minimal', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'msg_1',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-4-7',
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+  // ==============================================================================
+  // Reasoning & thinking injection
+  // ==============================================================================
+
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'anthropic',
+    baseUrl: 'https://api.anthropic.com/v1/messages',
+    fetch: upstream,
+    reasoning_effort: 'minimal',
+  });
+
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
+  });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.thinking).toEqual({ type: 'disabled' });
+});
+
+it('injects thinking:enabled with budget for anthropic upstream when reasoning_effort is high', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'msg_2',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-4-7',
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'anthropic',
+    baseUrl: 'https://api.anthropic.com/v1/messages',
+    fetch: upstream,
+    reasoning_effort: 'high',
+  });
+
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
+  });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.thinking).toEqual({ type: 'enabled', budget_tokens: 32768 });
+});
+
+it('injects raw thinking config for anthropic upstream when thinking is provided (overrides reasoning_effort)', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'msg_3',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-4-7',
+        content: [{ type: 'text', text: 'ok' }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'anthropic',
+    baseUrl: 'https://api.anthropic.com/v1/messages',
+    fetch: upstream,
+    reasoning_effort: 'high',
+    thinking: { type: 'disabled' },
+  });
+
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-7', input: 'hello' }),
+  });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  // thinking should win over reasoning_effort
+  expect(upstreamBody.thinking).toEqual({ type: 'disabled' });
+});
+
+it('does not inject reasoning_effort when not configured', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-nr',
+        object: 'chat.completion',
+        created: 1,
+        model: 'deepseek-v4-flash',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://api.deepseek.com/v1',
+    fetch: upstream,
+  });
+
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({ model: 'deepseek-v4-flash', input: 'hello' }),
+  });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.reasoning_effort).toBeUndefined();
+  expect(upstreamBody.thinking).toBeUndefined();
+});
 
 describe('config headers', () => {
   it('merges root-level defaultHeaders into upstream request', async () => {
     let capturedHeaders: Record<string, string> = {};
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedHeaders = Object.fromEntries(
-        Object.entries((init?.headers ?? {}) as Record<string, string>),
-      );
+    const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const hdrs_capture: Record<string, string> = init?.headers ?? {};
+      capturedHeaders = Object.fromEntries(Object.entries(hdrs_capture));
       return new Response(
         JSON.stringify({
-          id: 'chatcmpl-h1', object: 'chat.completion', created: 1, model: 'gpt-4',
+          id: 'chatcmpl-h1',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-4',
           choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -575,6 +639,9 @@ describe('config headers', () => {
       fetch: upstream,
       defaultHeaders: { 'x-custom-header': 'root-value' },
     });
+    // ==============================================================================
+    // Config headers
+    // ==============================================================================
 
     await fetchImpl('https://api.openai.com/v1/responses', {
       method: 'POST',
@@ -599,7 +666,9 @@ describe('config headers', () => {
       },
     };
 
-    const defaultHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+    const defaultHeaders: Record<string, string> = {
+      ...(config.headers ?? {}),
+    };
     const upstreamConfig = config.upstreams[config.currentUpstream];
     if (upstreamConfig.headers) {
       Object.assign(defaultHeaders, upstreamConfig.headers);
@@ -622,7 +691,9 @@ describe('config headers', () => {
       },
     };
 
-    const defaultHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+    const defaultHeaders: Record<string, string> = {
+      ...(config.headers ?? {}),
+    };
     const upstreamConfig = config.upstreams[config.currentUpstream];
     if (upstreamConfig.headers) {
       Object.assign(defaultHeaders, upstreamConfig.headers);
@@ -644,7 +715,9 @@ describe('config headers', () => {
       },
     };
 
-    const defaultHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+    const defaultHeaders: Record<string, string> = {
+      ...(config.headers ?? {}),
+    };
     const upstreamConfig = config.upstreams[config.currentUpstream];
     if (upstreamConfig.headers) {
       Object.assign(defaultHeaders, upstreamConfig.headers);
@@ -668,7 +741,7 @@ describe('config headers', () => {
     };
 
     const upstreamConfig = config.upstreams[config.currentUpstream];
-    const reasoning_effort = upstreamConfig.reasoningEffort ?? (config as any).reasoningEffort;
+    const reasoning_effort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
     expect(reasoning_effort).toBe('high');
   });
 
@@ -683,7 +756,7 @@ describe('config headers', () => {
     };
 
     const upstreamConfig = config.upstreams[config.currentUpstream];
-    const reasoning_effort = upstreamConfig.reasoningEffort ?? (config as any).reasoningEffort;
+    const reasoning_effort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
     expect(reasoning_effort).toBe('low');
   });
 
@@ -698,7 +771,7 @@ describe('config headers', () => {
     };
 
     const upstreamConfig = config.upstreams[config.currentUpstream];
-    const reasoning_effort = upstreamConfig.reasoningEffort ?? (config as any).reasoningEffort;
+    const reasoning_effort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
     expect(reasoning_effort).toBe('medium');
   });
 });
@@ -706,51 +779,23 @@ describe('config headers', () => {
 describe('fallback upstream', () => {
   it('routes to fallback when last user message has an image', async () => {
     let capturedUrl = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const upstream: typeof fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
       capturedUrl = typeof input === 'string' ? input : input.toString();
       return new Response(
         JSON.stringify({
-          id: 'chatcmpl-fb', object: 'chat.completion', created: 1, model: 'gpt-4',
+          id: 'chatcmpl-fb',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-4',
           choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://primary.com/v1',
-      fetch: upstream,
-      dropImages: true,
-      fallbackUpstream: { baseUrl: 'https://fallback.com/v1' },
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({
-        model: 'gpt-4',
-        input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'desc' }, { type: 'input_image', image_url: 'https://example.com/img.png' }] }],
-      }),
-    });
-
-    expect(capturedUrl).toBe('https://fallback.com/v1/chat/completions');
-  });
-
-  it('stays on primary when last user message has no image (even if older ones did)', async () => {
-    let capturedUrl = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-      capturedUrl = typeof input === 'string' ? input : input.toString();
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-pr', object: 'chat.completion', created: 1, model: 'gpt-4',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
+    };
+    // ==============================================================================
+    // Fallback upstream routing
+    // ==============================================================================
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -766,7 +811,60 @@ describe('fallback upstream', () => {
       body: JSON.stringify({
         model: 'gpt-4',
         input: [
-          { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'old image' }, { type: 'input_image', image_url: 'https://example.com/old.png' }] },
+          {
+            type: 'message',
+            role: 'user',
+            content: [
+              { type: 'input_text', text: 'desc' },
+              { type: 'input_image', image_url: 'https://example.com/img.png' },
+            ],
+          },
+        ],
+      }),
+    });
+
+    expect(capturedUrl).toBe('https://fallback.com/v1/chat/completions');
+  });
+
+  it('stays on primary when last user message has no image (even if older ones did)', async () => {
+    let capturedUrl = '';
+    const upstream: typeof fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+      capturedUrl = typeof input === 'string' ? input : input.toString();
+      return new Response(
+        JSON.stringify({
+          id: 'chatcmpl-pr',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-4',
+          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    };
+
+    const fetchImpl = createResponsesFetch({
+      upstreamFormat: 'openai-chat',
+      baseUrl: 'https://primary.com/v1',
+      fetch: upstream,
+      dropImages: true,
+      fallbackUpstream: { baseUrl: 'https://fallback.com/v1' },
+    });
+
+    await fetchImpl('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        input: [
+          {
+            type: 'message',
+            role: 'user',
+            content: [
+              { type: 'input_text', text: 'old image' },
+              { type: 'input_image', image_url: 'https://example.com/old.png' },
+            ],
+          },
           { type: 'message', role: 'assistant', content: 'reply' },
           { type: 'message', role: 'user', content: 'text-only follow-up' },
         ],
@@ -778,17 +876,20 @@ describe('fallback upstream', () => {
 
   it('stays on primary when all user messages are text-only', async () => {
     let capturedUrl = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const upstream: typeof fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
       capturedUrl = typeof input === 'string' ? input : input.toString();
       return new Response(
         JSON.stringify({
-          id: 'chatcmpl-pr', object: 'chat.completion', created: 1, model: 'gpt-4',
+          id: 'chatcmpl-pr',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-4',
           choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -812,17 +913,20 @@ describe('fallback upstream', () => {
 
   it('preserves images in translated body when using fallback', async () => {
     let capturedBody = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const upstream: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       capturedBody = String(init?.body ?? '');
       return new Response(
         JSON.stringify({
-          id: 'chatcmpl-fb', object: 'chat.completion', created: 1, model: 'gpt-4',
+          id: 'chatcmpl-fb',
+          object: 'chat.completion',
+          created: 1,
+          model: 'gpt-4',
           choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
           usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -837,29 +941,46 @@ describe('fallback upstream', () => {
       headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
       body: JSON.stringify({
         model: 'gpt-4',
-        input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'desc' }, { type: 'input_image', image_url: 'https://example.com/img.png' }] }],
+        input: [
+          {
+            type: 'message',
+            role: 'user',
+            content: [
+              { type: 'input_text', text: 'desc' },
+              { type: 'input_image', image_url: 'https://example.com/img.png' },
+            ],
+          },
+        ],
       }),
     });
+    // ==============================================================================
+    // Fallback model
+    // ==============================================================================
 
     const upstreamBody = JSON.parse(capturedBody);
-    const userMsg = upstreamBody.messages.find((m: { role: string }) => m.role === 'user');
-    const imageParts = userMsg.content.filter((p: { type: string }) => p.type === 'image_url');
+    const userMsg = upstreamBody.messages.find((msg: { role: string }) => msg.role === 'user');
+    const imageParts = userMsg.content.filter(
+      (part: { type: string }) => part.type === 'image_url',
+    );
     expect(imageParts).toHaveLength(1);
   });
 
   it('uses fallback upstream format when configured', async () => {
     let capturedUrl = '';
-    const upstream: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const upstream: typeof fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
       capturedUrl = typeof input === 'string' ? input : input.toString();
       return new Response(
         JSON.stringify({
-          id: 'msg_fb', type: 'message', role: 'assistant', model: 'claude-sonnet-4-7',
+          id: 'msg_fb',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-sonnet-4-7',
           content: [{ type: 'text', text: 'ok' }],
           usage: { input_tokens: 1, output_tokens: 1 },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
-    }) as unknown as typeof fetch;
+    };
 
     const fetchImpl = createResponsesFetch({
       upstreamFormat: 'openai-chat',
@@ -877,7 +998,16 @@ describe('fallback upstream', () => {
       headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-7',
-        input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'desc' }, { type: 'input_image', image_url: 'https://example.com/img.png' }] }],
+        input: [
+          {
+            type: 'message',
+            role: 'user',
+            content: [
+              { type: 'input_text', text: 'desc' },
+              { type: 'input_image', image_url: 'https://example.com/img.png' },
+            ],
+          },
+        ],
       }),
     });
 
@@ -886,81 +1016,99 @@ describe('fallback upstream', () => {
   });
 });
 
-  it('uses fallback model when configured', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-fb2', object: 'chat.completion', created: 1, model: 'gpt-5.4',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://primary.com/v1',
-      model: 'primary-model',
-      fetch: upstream,
-      dropImages: true,
-      fallbackUpstream: {
-        baseUrl: 'https://fallback.com/v1',
+it('uses fallback model when configured', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-fb2',
+        object: 'chat.completion',
+        created: 1,
         model: 'gpt-5.4',
-      },
-    });
-
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({
-        model: 'deepseek-v4-flash',
-        input: [{ type: 'message', role: 'user', content: [{ type: 'input_text', text: 'desc' }, { type: 'input_image', image_url: 'https://example.com/img.png' }] }],
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
       }),
-    });
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
 
-    const upstreamBody = JSON.parse(capturedBody);
-    expect(upstreamBody.model).toBe('gpt-5.4');
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://primary.com/v1',
+    model: 'primary-model',
+    fetch: upstream,
+    dropImages: true,
+    fallbackUpstream: {
+      baseUrl: 'https://fallback.com/v1',
+      model: 'gpt-5.4',
+    },
   });
 
-  it('uses fallback model when configured without dropImages (direct model override)', async () => {
-    let capturedBody = '';
-    const upstream: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
-      capturedBody = String(init?.body ?? '');
-      return new Response(
-        JSON.stringify({
-          id: 'chatcmpl-fb3', object: 'chat.completion', created: 1, model: 'gpt-5.4',
-          choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
-    }) as unknown as typeof fetch;
-
-    const fetchImpl = createResponsesFetch({
-      upstreamFormat: 'openai-chat',
-      baseUrl: 'https://primary.com/v1',
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({
       model: 'deepseek-v4-flash',
-      fetch: upstream,
-      fallbackUpstream: {
-        baseUrl: 'https://fallback.com/v1',
-        model: 'gpt-5.4',
-      },
-    });
-
-    // No images in request — fallback should not trigger, model stays as primary
-    await fetchImpl('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
-      body: JSON.stringify({
-        model: 'something',
-        input: 'hello',
-      }),
-    });
-
-    const upstreamBody = JSON.parse(capturedBody);
-    // Primary model is used, not fallback
-    expect(upstreamBody.model).toBe('deepseek-v4-flash');
+      input: [
+        {
+          type: 'message',
+          role: 'user',
+          content: [
+            { type: 'input_text', text: 'desc' },
+            { type: 'input_image', image_url: 'https://example.com/img.png' },
+          ],
+        },
+      ],
+    }),
   });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  expect(upstreamBody.model).toBe('gpt-5.4');
+});
+
+it('uses fallback model when configured without dropImages (direct model override)', async () => {
+  let capturedBody = '';
+  const upstream: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    capturedBody = String(init?.body ?? '');
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-fb3',
+        object: 'chat.completion',
+        created: 1,
+        model: 'gpt-5.4',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+
+  const fetchImpl = createResponsesFetch({
+    upstreamFormat: 'openai-chat',
+    baseUrl: 'https://primary.com/v1',
+    model: 'deepseek-v4-flash',
+    fetch: upstream,
+    fallbackUpstream: {
+      baseUrl: 'https://fallback.com/v1',
+      model: 'gpt-5.4',
+    },
+  });
+
+  // No images in request — fallback should not trigger, model stays as primary
+  await fetchImpl('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer test' },
+    body: JSON.stringify({
+      model: 'something',
+      input: 'hello',
+    }),
+  });
+
+  const upstreamBody = JSON.parse(capturedBody);
+  // Primary model is used, not fallback
+  expect(upstreamBody.model).toBe('deepseek-v4-flash');
+});
+// ==============================================================================
+// Direct model override
+// ==============================================================================

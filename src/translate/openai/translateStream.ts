@@ -1,7 +1,8 @@
-import type {
-  OpenAiChatStreamChunk,
-  OpenAiChatStreamDelta,
-} from '../../types/openai_chat.js';
+// ==============================================================================
+// Stream Translator
+// ==============================================================================
+
+import type { OpenAiChatStreamChunk, OpenAiChatStreamDelta } from '../../types/openai_chat.js';
 import type {
   ResponsesOutputFunctionCall,
   ResponsesOutputItem,
@@ -38,17 +39,17 @@ export async function* translateStream(
   stream: ReadableStream<Uint8Array>,
   options: TranslateStreamOptions = {},
 ): AsyncGenerator<ResponsesStreamEvent, void, void> {
-  const t = new StreamTranslator(options);
-  yield t.createInitialEvent();
+  const translator = new StreamTranslator(options);
+  yield translator.createInitialEvent();
 
   for await (const msg of parseSseStream(stream)) {
     if (isDoneMessage(msg)) break;
     const chunk = safeJsonParse<OpenAiChatStreamChunk>(msg.data);
     if (!chunk) continue;
-    yield* t.handleChunk(chunk);
+    yield* translator.handleChunk(chunk);
   }
 
-  yield* t.finalize();
+  yield* translator.finalize();
 }
 
 function isDoneMessage(msg: SseMessage): boolean {
@@ -86,6 +87,7 @@ class StreamTranslator {
   }
 
   createInitialEvent(): ResponsesStreamEvent {
+    const toolsArr: unknown[] = this.metadata.tools ?? [];
     const response: Partial<ResponsesResponse> = {
       id: this.responseId,
       object: 'response',
@@ -95,7 +97,7 @@ class StreamTranslator {
       temperature: this.metadata.temperature,
       top_p: this.metadata.top_p,
       tool_choice: this.metadata.tool_choice,
-      tools: (this.metadata.tools as unknown[]) ?? [],
+      tools: toolsArr,
       parallel_tool_calls: true,
       store: this.metadata.store ?? true,
       metadata: this.metadata.metadata ?? {},
@@ -106,14 +108,16 @@ class StreamTranslator {
 
   *handleChunk(chunk: OpenAiChatStreamChunk): Generator<ResponsesStreamEvent, void, void> {
     if (chunk.usage) {
-      if (typeof chunk.usage.prompt_tokens === 'number') this.inputTokens = chunk.usage.prompt_tokens;
-      if (typeof chunk.usage.completion_tokens === 'number') this.outputTokens = chunk.usage.completion_tokens;
+      if (typeof chunk.usage.prompt_tokens === 'number')
+        this.inputTokens = chunk.usage.prompt_tokens;
+      if (typeof chunk.usage.completion_tokens === 'number')
+        this.outputTokens = chunk.usage.completion_tokens;
       const cached = chunk.usage.prompt_tokens_details?.cached_tokens;
       if (typeof cached === 'number') this.cachedTokens = cached;
     }
 
     const choice = chunk.choices?.[0];
-    const delta = choice?.delta as OpenAiChatStreamDelta | undefined;
+    const delta: OpenAiChatStreamDelta | undefined = choice?.delta;
     if (!delta) return;
 
     if (delta.tool_calls?.length) {
@@ -145,7 +149,8 @@ class StreamTranslator {
           state.item.name = (state.item.name ?? '') + fn.name;
         }
         if (fn?.arguments != null) {
-          const partial = typeof fn.arguments === 'string' ? fn.arguments : jsonStringifySafe(fn.arguments);
+          const partial =
+            typeof fn.arguments === 'string' ? fn.arguments : jsonStringifySafe(fn.arguments);
           if (partial) {
             state.item.arguments = (state.item.arguments ?? '') + partial;
             yield this.makeEvent('response.function_call_arguments.delta', {
@@ -177,7 +182,8 @@ class StreamTranslator {
         });
       }
       this.textBuffer += delta.content;
-      (this.textItem.content[0] as { text: string }).text = this.textBuffer;
+      const textContent: { text: string } = this.textItem.content[0];
+      textContent.text = this.textBuffer;
       yield this.makeEvent('response.output_text.delta', {
         response_id: this.responseId,
         item_id: this.textItem.id,
@@ -207,7 +213,7 @@ class StreamTranslator {
       items.push({ index: state.outputIndex, item });
     }
 
-    items.sort((a, b) => a.index - b.index);
+    items.sort((alpha, beta) => alpha.index - beta.index);
 
     for (const { index, item } of items) {
       yield this.makeEvent('response.output_item.done', {
@@ -217,7 +223,8 @@ class StreamTranslator {
       });
     }
 
-    const output = items.map((e) => e.item);
+    const output = items.map((item) => item.item);
+    const finalToolsArr: unknown[] = this.metadata.tools ?? [];
     const total = this.inputTokens + this.outputTokens;
 
     const response: Partial<ResponsesResponse> = {
@@ -230,7 +237,7 @@ class StreamTranslator {
       temperature: this.metadata.temperature,
       top_p: this.metadata.top_p,
       tool_choice: this.metadata.tool_choice,
-      tools: (this.metadata.tools as unknown[]) ?? [],
+      tools: finalToolsArr,
       parallel_tool_calls: true,
       store: this.metadata.store ?? true,
       metadata: this.metadata.metadata ?? {},

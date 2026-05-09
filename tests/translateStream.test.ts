@@ -63,14 +63,16 @@ describe('translateStream (Anthropic SSE -> Responses events)', () => {
     );
 
     expect(events[0]?.type).toBe('response.created');
-    expect(events.some((e) => e.type === 'response.output_item.added')).toBe(true);
-    const deltas = events.filter((e) => e.type === 'response.output_text.delta');
+    expect(events.some((evt) => evt.type === 'response.output_item.added')).toBe(true);
+    const deltas = events.filter((evt) => evt.type === 'response.output_text.delta');
     expect(deltas.length).toBe(2);
-    expect((deltas[0] as { delta: string }).delta).toBe('Hello');
+    const d0: { delta: string } = deltas[0]!;
+    expect(d0.delta).toBe('Hello');
 
     const completed = events[events.length - 1];
     expect(completed?.type).toBe('response.completed');
-    const response = (completed as { response: { output: unknown[]; usage: { output_tokens: number } } }).response;
+    const comp: { response: { output: unknown[]; usage: { output_tokens: number } } } = completed!;
+    const response = comp.response;
     expect(response.usage.output_tokens).toBe(2);
     expect(response.output.length).toBe(1);
   });
@@ -108,9 +110,10 @@ describe('translateStream (Anthropic SSE -> Responses events)', () => {
     ].join('');
 
     const events = await collect(translateStream(makeByteStream([body])));
-    const done = events.find((e) => e.type === 'response.output_item.done');
+    const done = events.find((evt) => evt.type === 'response.output_item.done');
     expect(done).toBeDefined();
-    const item = (done as { item: { name: string; arguments: string; call_id: string } }).item;
+    const doneItem: { item: { name: string; arguments: string; call_id: string } } = done!;
+    const item = doneItem.item;
     expect(item.name).toBe('search');
     expect(item.arguments).toBe('{"q":"hi"}');
     expect(item.call_id).toBe('call_1');

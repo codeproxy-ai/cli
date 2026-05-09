@@ -13,4 +13,8 @@ export * as anthropic from './anthropic/index.js';
 export * as openai from './openai/index.js';
 
 // Re-export unified types
-export type { ResponsesRequest, ResponsesResponse, ResponsesStreamEvent } from '../types/responses.js';
+export type {
+  ResponsesRequest,
+  ResponsesResponse,
+  ResponsesStreamEvent,
+} from '../types/responses.js';

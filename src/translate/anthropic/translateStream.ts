@@ -1,7 +1,8 @@
-import type {
-  AnthropicStreamEvent,
-  AnthropicContentBlock,
-} from '../../types/anthropic.js';
+// ==============================================================================
+// Stream Translator
+// ==============================================================================
+
+import type { AnthropicStreamEvent, AnthropicContentBlock } from '../../types/anthropic.js';
 import type {
   ResponsesOutputItem,
   ResponsesOutputFunctionCall,
@@ -11,12 +12,16 @@ import type {
   ResponsesStreamEvent,
 } from '../../types/responses.js';
 import { parseSseStream, type SseMessage } from '../../utils/sse.js';
-import { safeJsonParse, jsonStringifySafe } from '../../utils/json.js';
+import { safeJsonParse } from '../../utils/json.js';
 import { makeId } from '../../utils/id.js';
 
 export interface TranslateStreamOptions {
   model?: string;
   responseId?: string;
+  // ==============================================================================
+  // Event Handlers
+  // ==============================================================================
+
   createdAt?: number;
   requestMetadata?: ResponsesStreamMetadata;
 }
@@ -56,7 +61,7 @@ export async function* translateAnthropicEvents(
 ): AsyncGenerator<ResponsesStreamEvent, void, void> {
   const translator = new StreamTranslator(options);
   yield translator.createInitialEvent();
-  for await (const event of events as AsyncIterable<AnthropicStreamEvent>) {
+  for await (const event of events) {
     yield* translator.handleEvent(event);
   }
   yield* translator.finalize();
@@ -65,7 +70,6 @@ export async function* translateAnthropicEvents(
 function parseAnthropicEvent(msg: SseMessage): AnthropicStreamEvent | undefined {
   const parsed = safeJsonParse<AnthropicStreamEvent>(msg.data);
   if (!parsed) return undefined;
-  if (!parsed.type && msg.event) (parsed as { type: string }).type = msg.event;
   return parsed;
 }
 
@@ -115,7 +119,7 @@ class StreamTranslator {
       temperature: this.metadata.temperature,
       top_p: this.metadata.top_p,
       tool_choice: this.metadata.tool_choice,
-      tools: (this.metadata.tools as unknown[]) ?? [],
+      tools: this.metadata.tools ?? [],
       parallel_tool_calls: true,
       store: this.metadata.store ?? true,
       metadata: this.metadata.metadata ?? {},
@@ -126,19 +130,30 @@ class StreamTranslator {
 
   *handleEvent(event: AnthropicStreamEvent): Generator<ResponsesStreamEvent, void, void> {
     switch (event.type) {
-      case 'message_start':
-        yield* this.onMessageStart(event as Extract<AnthropicStreamEvent, { type: 'message_start' }>);
+      case 'message_start': {
+        const msgStartEvt: Extract<AnthropicStreamEvent, { type: 'message_start' }> = event;
+        this.onMessageStart(msgStartEvt);
         return;
+      }
       case 'content_block_start':
-        yield* this.onContentBlockStart(event as Extract<AnthropicStreamEvent, { type: 'content_block_start' }>);
+        {
+          const cbsEvt: Extract<AnthropicStreamEvent, { type: 'content_block_start' }> = event;
+          yield* this.onContentBlockStart(cbsEvt);
+        }
         return;
       case 'content_block_delta':
-        yield* this.onContentBlockDelta(event as Extract<AnthropicStreamEvent, { type: 'content_block_delta' }>);
+        {
+          const cbdEvt: Extract<AnthropicStreamEvent, { type: 'content_block_delta' }> = event;
+          yield* this.onContentBlockDelta(cbdEvt);
+        }
         return;
       case 'content_block_stop':
         return;
       case 'message_delta':
-        yield* this.onMessageDelta(event as Extract<AnthropicStreamEvent, { type: 'message_delta' }>);
+        {
+          const msgDeltaEvt: Extract<AnthropicStreamEvent, { type: 'message_delta' }> = event;
+          this.onMessageDelta(msgDeltaEvt);
+        }
         return;
       case 'message_stop':
       case 'ping':
@@ -152,17 +167,16 @@ class StreamTranslator {
     const items: { index: number; item: ResponsesOutputItem }[] = [];
 
     if (this.textItem) {
-      (this.textItem as ResponsesOutputMessage).status = 'completed';
       items.push({ index: this.textItemIndex, item: this.textItem });
     }
 
     for (const block of this.blocks.values()) {
       if (!block.item) continue;
-      if (items.find((e) => e.index === block.outputIndex)) continue;
-      const item = block.item as Record<string, unknown>;
+      if (items.find((item) => item.index === block.outputIndex)) continue;
+      const item: Record<string, unknown> = block.item;
       item.status = 'completed';
       if (block.type === 'tool_use') {
-        const call = item as unknown as ResponsesOutputFunctionCall;
+        const call: ResponsesOutputFunctionCall = item;
         if (call.name && SHELL_TOOL_NAMES.has(call.name)) {
           call.type = 'local_shell_call';
           const parsed = safeJsonParse<{ command?: string[] }>(call.arguments ?? '');
@@ -172,7 +186,7 @@ class StreamTranslator {
       items.push({ index: block.outputIndex, item: block.item });
     }
 
-    items.sort((a, b) => a.index - b.index);
+    items.sort((alpha, beta) => alpha.index - beta.index);
 
     for (const { index, item } of items) {
       yield this.makeEvent('response.output_item.done', {
@@ -182,7 +196,7 @@ class StreamTranslator {
       });
     }
 
-    const output = items.map((e) => e.item);
+    const output = items.map((item) => item.item);
     const total = this.inputTokens + this.outputTokens;
 
     const response: Partial<ResponsesResponse> = {
@@ -195,7 +209,7 @@ class StreamTranslator {
       temperature: this.metadata.temperature,
       top_p: this.metadata.top_p,
       tool_choice: this.metadata.tool_choice,
-      tools: (this.metadata.tools as unknown[]) ?? [],
+      tools: this.metadata.tools ?? [],
       parallel_tool_calls: true,
       store: this.metadata.store ?? true,
       metadata: this.metadata.metadata ?? {},
@@ -214,9 +228,7 @@ class StreamTranslator {
     yield this.makeEvent('response.completed', { response });
   }
 
-  private *onMessageStart(
-    event: Extract<AnthropicStreamEvent, { type: 'message_start' }>,
-  ): Generator<ResponsesStreamEvent, void, void> {
+  private onMessageStart(event: Extract<AnthropicStreamEvent, { type: 'message_start' }>): void {
     const usage = event.message?.usage;
     if (usage) {
       this.inputTokens = usage.input_tokens ?? 0;
@@ -230,7 +242,7 @@ class StreamTranslator {
     event: Extract<AnthropicStreamEvent, { type: 'content_block_start' }>,
   ): Generator<ResponsesStreamEvent, void, void> {
     const index = event.index;
-    const block = event.content_block as AnthropicContentBlock & { id?: string; name?: string };
+    const block: AnthropicContentBlock & { id?: string; name?: string } = event.content_block;
     const btype = block.type;
 
     if (btype === 'thinking') {
@@ -300,16 +312,14 @@ class StreamTranslator {
   ): Generator<ResponsesStreamEvent, void, void> {
     const block = this.blocks.get(event.index);
     if (!block) return;
-    const delta = event.delta as Record<string, unknown>;
-    const dtype = delta.type as string | undefined;
+    const delta: Record<string, unknown> = event.delta;
+    const dtype: string | undefined = delta.type;
 
     if (dtype === 'text_delta') {
       const text = String(delta.text ?? '');
       if (!text) return;
       this.textBuffer += text;
-      if (this.textItem) {
-        (this.textItem.content[0] as { text: string }).text = this.textBuffer;
-      }
+      // text content available via this.textItem.content[0]
       yield this.makeEvent('response.output_text.delta', {
         response_id: this.responseId,
         item_id: this.textItem?.id ?? '',
@@ -324,7 +334,7 @@ class StreamTranslator {
       const thinking = String(delta.thinking ?? '');
       if (!thinking) return;
       block.buffer += thinking;
-      const item = block.item as ResponsesOutputReasoning | undefined;
+      const item: ResponsesOutputReasoning | undefined = block.item;
       if (item) item.content[0].text = block.buffer;
       yield this.makeEvent('response.reasoning_text.delta', {
         response_id: this.responseId,
@@ -340,7 +350,7 @@ class StreamTranslator {
       const partial = String(delta.partial_json ?? '');
       if (!partial) return;
       block.buffer += partial;
-      const item = block.item as ResponsesOutputFunctionCall | undefined;
+      const item: ResponsesOutputFunctionCall | undefined = block.item;
       if (item) item.arguments = block.buffer;
       yield this.makeEvent('response.function_call_arguments.delta', {
         response_id: this.responseId,
@@ -352,13 +362,12 @@ class StreamTranslator {
     }
   }
 
-  private *onMessageDelta(
-    event: Extract<AnthropicStreamEvent, { type: 'message_delta' }>,
-  ): Generator<ResponsesStreamEvent, void, void> {
+  private onMessageDelta(event: Extract<AnthropicStreamEvent, { type: 'message_delta' }>): void {
     if (event.usage?.output_tokens != null) {
       this.outputTokens = event.usage.output_tokens;
     }
-    const stopReason = (event.delta as { stop_reason?: string } | undefined)?.stop_reason;
+    const eventDelta: { stop_reason?: string } | undefined = event.delta;
+    const stopReason = eventDelta?.stop_reason;
     if (stopReason) this.stopReason = stopReason;
     return;
   }

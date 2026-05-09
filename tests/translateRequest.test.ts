@@ -49,11 +49,16 @@ describe('translateRequest (Responses -> Anthropic)', () => {
     expect(request.messages.length).toBeGreaterThanOrEqual(3);
     expect(request.messages[0]).toMatchObject({ role: 'user' });
     const assistantMsg = request.messages.find(
-      (m) => m.role === 'assistant' && Array.isArray(m.content) && m.content.some((b) => (b as { type: string }).type === 'tool_use'),
+      (msg) =>
+        msg.role === 'assistant' &&
+        Array.isArray(msg.content) &&
+        msg.content.some((block: { type: string }) => block.type === 'tool_use'),
     );
     expect(assistantMsg).toBeDefined();
     const userToolResult = request.messages.find(
-      (m) => Array.isArray(m.content) && m.content.some((b) => (b as { type: string }).type === 'tool_result'),
+      (msg) =>
+        Array.isArray(msg.content) &&
+        msg.content.some((block: { type: string }) => block.type === 'tool_result'),
     );
     expect(userToolResult).toBeDefined();
     expect(request.tools).toEqual([
@@ -68,21 +73,25 @@ describe('translateRequest (Responses -> Anthropic)', () => {
         {
           type: 'message',
           role: 'user',
-          content: [
-            { type: 'input_image', mime_type: 'image/jpeg', data: 'AAA' },
-          ],
+          content: [{ type: 'input_image', mime_type: 'image/jpeg', data: 'AAA' }],
         },
       ],
     });
     const firstMessage = request.messages[0];
     if (!Array.isArray(firstMessage.content)) throw new Error('unexpected');
-    const firstBlock = firstMessage.content[0] as { type: string; source?: { type: string; media_type?: string; data?: string } };
+    const firstBlock: {
+      type: string;
+      source?: { type: string; media_type?: string; data?: string };
+    } = firstMessage.content[0];
     expect(firstBlock.type).toBe('image');
     expect(firstBlock.source?.type).toBe('base64');
     expect(firstBlock.source?.media_type).toBe('image/jpeg');
     expect(firstBlock.source?.data).toBe('AAA');
   });
 
+  // ==============================================================================
+  // 工具调用修复
+  // ==============================================================================
   it('repairs dangling tool_use when no matching tool_result exists', () => {
     const { request } = translateRequest({
       model: 'claude-sonnet-4-5',
@@ -92,7 +101,9 @@ describe('translateRequest (Responses -> Anthropic)', () => {
       ],
     });
     const toolResultMsg = request.messages.find(
-      (m) => Array.isArray(m.content) && m.content.some((b) => (b as { type: string }).type === 'tool_result'),
+      (msg) =>
+        Array.isArray(msg.content) &&
+        msg.content.some((block: { type: string }) => block.type === 'tool_result'),
     );
     expect(toolResultMsg).toBeDefined();
   });

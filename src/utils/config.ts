@@ -1,3 +1,6 @@
+// ==============================================================================
+// Config Loader
+// ==============================================================================
 /**
  * Configuration file loader and validator.
  */
@@ -27,13 +30,16 @@ export async function loadConfigFile(
   try {
     if (configPath.endsWith('.json')) {
       const content = readFileSync(configPath, 'utf-8');
-      return JSON.parse(content) as ConfigFile;
+      const parsed: ConfigFile = JSON.parse(content);
+      return parsed;
     } else if (configPath.endsWith('.js') || configPath.endsWith('.mjs')) {
       const module = await import(`file://${configPath}`);
-      return module.default as ConfigFile;
+      const defaultExport: ConfigFile = module.default;
+      return defaultExport;
     } else if (configPath.endsWith('.ts')) {
       const module = await import(`file://${configPath}`);
-      return module.default as ConfigFile;
+      const defaultExport: ConfigFile = module.default;
+      return defaultExport;
     }
     return null;
   } catch (error) {
@@ -73,7 +79,7 @@ export function validateConfig(config: unknown): { valid: boolean; error?: strin
     return { valid: false, error: 'Config must be an object' };
   }
 
-  const cfg = config as Record<string, unknown>;
+  const cfg: Record<string, unknown> = config;
 
   if (typeof cfg.version !== 'string') {
     return { valid: false, error: 'Config must have a version string' };
@@ -87,7 +93,7 @@ export function validateConfig(config: unknown): { valid: boolean; error?: strin
     return { valid: false, error: 'Config must have an upstreams object' };
   }
 
-  const upstreams = cfg.upstreams as Record<string, unknown>;
+  const upstreams: Record<string, unknown> = cfg.upstreams;
 
   if (!(cfg.currentUpstream in upstreams)) {
     return {
@@ -117,7 +123,7 @@ export function validateUpstreamConfig(upstream: unknown): {
     return { valid: false, error: 'Upstream config must be an object' };
   }
 
-  const cfg = upstream as Record<string, unknown>;
+  const cfg: Record<string, unknown> = upstream;
 
   if (cfg.format !== undefined) {
     if (typeof cfg.format !== 'string') {

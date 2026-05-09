@@ -2,7 +2,8 @@
 
 export function safeJsonParse<T = unknown>(text: string): T | undefined {
   try {
-    return JSON.parse(text) as T;
+    const parsed: T = JSON.parse(text);
+    return parsed;
   } catch {
     return undefined;
   }

@@ -42,8 +42,4 @@ export type {
   OpenAiChatStreamChunk,
 } from './types/openai_chat.js';
 
-export {
-  parseSseStream,
-  encodeSseEvent,
-  type SseMessage,
-} from './utils/sse.js';
+export { parseSseStream, encodeSseEvent, type SseMessage } from './utils/sse.js';

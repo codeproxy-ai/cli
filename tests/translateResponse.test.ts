@@ -18,12 +18,12 @@ describe('translateResponse (Anthropic -> Responses)', () => {
     expect(res.status).toBe('completed');
     expect(res.usage).toMatchObject({ input_tokens: 10, output_tokens: 3, total_tokens: 13 });
 
-    const toolCall = res.output.find((o) => (o as { type: string }).type === 'function_call');
+    const toolCall = res.output.find((item: { type: string }) => item.type === 'function_call');
     expect(toolCall).toBeDefined();
-    expect((toolCall as { name: string }).name).toBe('search');
-    expect((toolCall as { arguments: string }).arguments).toBe('{"q":"foo"}');
-
-    const message = res.output.find((o) => (o as { type: string }).type === 'message');
+    const tc: { name: string; arguments: string } = toolCall!;
+    expect(tc.name).toBe('search');
+    expect(tc.arguments).toBe('{"q":"foo"}');
+    const message = res.output.find((item: { type: string }) => item.type === 'message');
     expect(message).toBeDefined();
   });
 
@@ -33,12 +33,10 @@ describe('translateResponse (Anthropic -> Responses)', () => {
       type: 'message',
       role: 'assistant',
       model: 'claude',
-      content: [
-        { type: 'tool_use', id: 'c', name: 'shell', input: { command: ['ls', '-la'] } },
-      ],
+      content: [{ type: 'tool_use', id: 'c', name: 'shell', input: { command: ['ls', '-la'] } }],
       usage: { input_tokens: 0, output_tokens: 0 },
     });
-    const item = res.output[0] as { type: string; action?: { command: string[] } };
+    const item: { type: string; action?: { command: string[] } } = res.output[0];
     expect(item.type).toBe('local_shell_call');
     expect(item.action?.command).toEqual(['ls', '-la']);
   });

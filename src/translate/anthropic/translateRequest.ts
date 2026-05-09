@@ -1,3 +1,7 @@
+// ==============================================================================
+// Block Conversion
+// ==============================================================================
+
 import type {
   ResponsesRequest,
   ResponsesInputItem,
@@ -13,13 +17,10 @@ import type {
   AnthropicTool,
   AnthropicToolChoice,
   AnthropicThinkingConfig,
-  AnthropicImageBlock,
-  AnthropicDocumentBlock,
   AnthropicToolUseBlock,
   AnthropicToolResultBlock,
 } from '../../types/anthropic.js';
 import { makeId } from '../../utils/id.js';
-import { safeJsonParse } from '../../utils/json.js';
 
 const ANTHROPIC_BUILTIN_TOOL_TYPES = new Set([
   'web_search_20250305',
@@ -27,6 +28,10 @@ const ANTHROPIC_BUILTIN_TOOL_TYPES = new Set([
   'text_editor_20250124',
   'bash_20250124',
 ]);
+
+// ==============================================================================
+// Main Translation
+// ==============================================================================
 
 export interface TranslateRequestOptions {
   /** Default max tokens when not provided (Anthropic requires `max_tokens`). */
@@ -109,8 +114,12 @@ function extractSystemBlocks(instructions: ResponsesRequest['instructions']): An
   for (const item of instructions) {
     if (typeof item === 'string') blocks.push({ type: 'text', text: item });
     else if (item && typeof item === 'object') {
-      const block: AnthropicTextBlock = { type: 'text', text: String((item as { text?: string }).text ?? '') };
-      const cache = (item as { cache_control?: Record<string, unknown> }).cache_control;
+      const block: AnthropicTextBlock = {
+        type: 'text',
+        text: String(item.text ?? ''),
+      };
+      const cacheItem: { cache_control?: Record<string, unknown> } = item;
+      const cache = cacheItem.cache_control;
       if (cache) block.cache_control = cache;
       blocks.push(block);
     }
@@ -149,11 +158,7 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
 
   const rawInput = data.input;
   const inputItems: ResponsesInputItem[] =
-    typeof rawInput === 'string'
-      ? [rawInput]
-      : Array.isArray(rawInput)
-        ? rawInput
-        : [];
+    typeof rawInput === 'string' ? [rawInput] : Array.isArray(rawInput) ? rawInput : [];
 
   for (const raw of inputItems) {
     if (typeof raw === 'string') {
@@ -162,8 +167,8 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
       continue;
     }
     if (!raw || typeof raw !== 'object') continue;
-    const item = raw as Record<string, unknown>;
-    const itemType = (item.type as string) || 'message';
+    const item: Record<string, unknown> = raw;
+    const itemType: string = String(item.type || 'message');
 
     if (
       itemType === 'function_call_output' ||
@@ -172,7 +177,7 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
       itemType === 'custom_tool_call_output'
     ) {
       flushToolUses();
-      const callId = (item.call_id as string) || (item.id as string) || makeId('call');
+      const callId: string = String(item.call_id || item.id || makeId('call'));
       pendingToolResults.push({
         type: 'tool_result',
         tool_use_id: callId,
@@ -202,7 +207,7 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
 
     if (itemType === 'message' || itemType === 'agentMessage') {
       flushPending();
-      let role = (item.role as string) || 'user';
+      let role: string = String(item.role || 'user');
       if (role === 'developer') role = 'system';
 
       if (role === 'system') {
@@ -220,11 +225,20 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
           if (typeof part === 'string') {
             contentBlocks.push({ type: 'text', text: part });
           } else if (part && typeof part === 'object') {
-            const p = part as ResponsesContentPart;
-            if (p.type === 'input_text' || p.type === 'text' || p.type === 'output_text') {
-              contentBlocks.push({ type: 'text', text: String(p.text ?? '') });
-            } else if (p.type === 'input_image' || p.type === 'image' || p.type === 'image_url') {
-              const imgUrl = (p as { image_url?: string | { url: string } }).image_url;
+            const contentPart: ResponsesContentPart = part;
+            if (
+              contentPart.type === 'input_text' ||
+              contentPart.type === 'text' ||
+              contentPart.type === 'output_text'
+            ) {
+              contentBlocks.push({ type: 'text', text: String(contentPart.text ?? '') });
+            } else if (
+              contentPart.type === 'input_image' ||
+              contentPart.type === 'image' ||
+              contentPart.type === 'image_url'
+            ) {
+              const imgUrlPart: { image_url?: string | { url: string } } = p;
+              const imgUrl = imgUrlPart.image_url;
               const urlStr =
                 typeof imgUrl === 'string'
                   ? imgUrl
@@ -232,45 +246,42 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
                     ? imgUrl.url
                     : '';
               if (urlStr.startsWith('data:')) {
-                const m = /^data:([^;,]+);base64,(.*)$/.exec(urlStr);
-                if (m) {
+                const match = /^data:([^;,]+);base64,(.*)$/.exec(urlStr);
+                if (match) {
                   contentBlocks.push({
                     type: 'image',
-                    source: { type: 'base64', media_type: m[1], data: m[2] },
+                    source: { type: 'base64', media_type: match[1], data: match[2] },
                   });
                 }
               } else if (urlStr) {
+                const imgSource = { type: 'url', url: urlStr };
                 contentBlocks.push({
                   type: 'image',
-                  source: { type: 'url', url: urlStr } as unknown as {
-                    type: 'base64';
-                    media_type: string;
-                    data: string;
-                  },
+                  source: imgSource,
                 });
               } else {
-                const data = String((p as { data?: string; base64?: string }).data ?? (p as { base64?: string }).base64 ?? '');
+                const data = String(p.data ?? p.base64 ?? '');
                 if (data) {
                   contentBlocks.push({
                     type: 'image',
                     source: {
                       type: 'base64',
-                      media_type:
-                        (p as { mime_type?: string; media_type?: string }).mime_type ||
-                        (p as { media_type?: string }).media_type ||
-                        'image/png',
+                      media_type: p.mime_type || p.media_type || 'image/png',
                       data,
                     },
                   });
                 }
+                // ==============================================================================
+                // Tool Adjacency
+                // ==============================================================================
               }
-            } else if (p.type === 'input_file') {
+            } else if (contentPart.type === 'input_file') {
               contentBlocks.push({
                 type: 'document',
                 source: {
                   type: 'base64',
-                  media_type: (p as { mime_type?: string }).mime_type || 'application/pdf',
-                  data: String((p as { data?: string }).data ?? ''),
+                  media_type: p.mime_type || 'application/pdf',
+                  data: String(p.data ?? ''),
                 },
               });
             }
@@ -294,7 +305,7 @@ function buildMessages(data: ResponsesRequest, systemBlocks: AnthropicTextBlock[
   flushPending();
 
   for (const block of systemBlocks) {
-    if ((block as AnthropicTextBlock).cache_control) hasPromptCache = true;
+    if (block.cache_control) hasPromptCache = true;
   }
 
   return { messages, hasPromptCache };
@@ -308,7 +319,7 @@ function extractMessageText(item: Record<string, unknown>): string {
     for (const part of rawContent) {
       if (typeof part === 'string') out += part;
       else if (part && typeof part === 'object') {
-        out += String((part as { text?: string }).text ?? '');
+        out += String(part.text ?? '');
       }
     }
     return out;
@@ -323,18 +334,18 @@ function extractToolOutputText(item: Record<string, unknown>): string {
     let out = '';
     for (const part of raw) {
       if (typeof part === 'string') out += part;
-      else if (part && typeof part === 'object') out += String((part as { text?: string }).text ?? '');
+      else if (part && typeof part === 'object') out += String(part.text ?? '');
     }
     return out;
   }
-  if (raw && typeof raw === 'object') return String((raw as { content?: string }).content ?? '');
+  if (raw && typeof raw === 'object') return String(raw.content ?? '');
   return '';
 }
 
 function mapInputToolCall(item: Record<string, unknown>): AnthropicToolUseBlock | undefined {
-  const callId = (item.call_id as string) || (item.id as string) || makeId('call');
-  let name = item.name as string | undefined;
-  const itemType = item.type as string | undefined;
+  const callId: string = String(item.call_id || item.id || makeId('call'));
+  let name: string | undefined = item.name;
+  const itemType: string | undefined = item.type;
 
   if (!name) {
     if (itemType === 'commandExecution') name = 'run_shell_command';
@@ -345,19 +356,19 @@ function mapInputToolCall(item: Record<string, unknown>): AnthropicToolUseBlock 
 
   if (!name) return undefined;
 
-  const input =
-    (item.arguments as Record<string, unknown>) ??
-    (item.input as Record<string, unknown>) ??
-    {};
+  const args: Record<string, unknown> = item.arguments ?? {};
+  const inp: Record<string, unknown> = item.input ?? {};
+  const input: Record<string, unknown> = args ?? inp ?? {};
 
   const block: AnthropicToolUseBlock = {
     type: 'tool_use',
     id: callId,
     name,
-    input: input as Record<string, unknown>,
+    input: input,
   };
 
-  const cache = (item as { cache_control?: Record<string, unknown> }).cache_control;
+  const cacheItem: { cache_control?: Record<string, unknown> } = item;
+  const cache = cacheItem.cache_control;
   if (cache) block.cache_control = cache;
 
   return block;
@@ -369,17 +380,19 @@ function mapTools(tools: ResponsesTool[]): (AnthropicTool | Record<string, unkno
     if (!tool || typeof tool !== 'object') continue;
     const tt = tool.type || '';
     if (ANTHROPIC_BUILTIN_TOOL_TYPES.has(tt)) {
-      out.push(tool as Record<string, unknown>);
+      out.push(tool);
       continue;
     }
     if (tt !== 'function') continue;
     const fn = tool.function;
     const name = fn?.name ?? tool.name;
     if (!name) continue;
+    const toolInputSchema: Record<string, unknown> = fn?.parameters ??
+      tool.parameters ?? { type: 'object' };
     out.push({
       name,
       description: fn?.description ?? tool.description ?? '',
-      input_schema: (fn?.parameters ?? tool.parameters ?? { type: 'object' }) as Record<string, unknown>,
+      input_schema: toolInputSchema,
     });
   }
   return out;
@@ -408,14 +421,17 @@ function mapThinking(
   const effort = reasoning.effort;
   if (!effort || effort === 'minimal') return undefined;
   const budgets = { ...DEFAULT_REASONING_BUDGETS, ...overrides };
-  const budget = (budgets as Record<string, number | undefined>)[effort] ?? DEFAULT_REASONING_BUDGETS.medium;
+  const budget = budgets[effort] ?? DEFAULT_REASONING_BUDGETS.medium;
   const clamped = Math.max(1024, Math.min(budget, Math.max(1024, maxTokens - 1024)));
   return { type: 'enabled', budget_tokens: clamped };
 }
 
 function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
   const repaired: AnthropicMessage[] = [];
-  const working = messages.map((m) => ({ ...m, content: Array.isArray(m.content) ? [...m.content] : m.content }));
+  const working = messages.map((msg) => ({
+    ...msg,
+    content: Array.isArray(msg.content) ? [...msg.content] : msg.content,
+  }));
 
   for (let i = 0; i < working.length; i++) {
     const msg = working[i];
@@ -424,8 +440,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
     if (msg.role !== 'assistant' || !Array.isArray(content)) continue;
 
     const toolUseIds = content
-      .filter((b): b is AnthropicToolUseBlock => !!b && (b as { type?: string }).type === 'tool_use')
-      .map((b) => b.id);
+      .filter((block): block is AnthropicToolUseBlock => !!block && block.type === 'tool_use')
+      .map((block) => block.id);
     if (!toolUseIds.length) continue;
 
     const next = working[i + 1];
@@ -435,8 +451,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
     const foundById = new Map<string, AnthropicToolResultBlock>();
     const consumedInNext = new Set<string>();
     for (const block of nextUserContent) {
-      if (block && (block as { type?: string }).type === 'tool_result') {
-        const tr = block as AnthropicToolResultBlock;
+      if (block && block.type === 'tool_result') {
+        const tr: AnthropicToolResultBlock = block;
         if (toolUseIds.includes(tr.tool_use_id) && !foundById.has(tr.tool_use_id)) {
           foundById.set(tr.tool_use_id, tr);
           consumedInNext.add(tr.tool_use_id);
@@ -452,8 +468,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
         if (later.role !== 'user' || !Array.isArray(later.content)) continue;
         const keep: AnthropicContentBlock[] = [];
         for (const block of later.content) {
-          if (block && (block as { type?: string }).type === 'tool_result') {
-            const tr = block as AnthropicToolResultBlock;
+          if (block && block.type === 'tool_result') {
+            const tr: AnthropicToolResultBlock = block;
             if (missingSet.has(tr.tool_use_id)) {
               foundById.set(tr.tool_use_id, tr);
               missingSet.delete(tr.tool_use_id);
@@ -478,8 +494,8 @@ function repairToolAdjacency(messages: AnthropicMessage[]): AnthropicMessage[] {
 
     if (nextUserContent.length) {
       const remaining = nextUserContent.filter((block) => {
-        if (block && (block as { type?: string }).type === 'tool_result') {
-          const tr = block as AnthropicToolResultBlock;
+        if (block && block.type === 'tool_result') {
+          const tr: AnthropicToolResultBlock = block;
           if (consumedInNext.has(tr.tool_use_id)) {
             consumedInNext.delete(tr.tool_use_id);
             return false;
@@ -500,9 +516,9 @@ function sanitizeMessages(messages: AnthropicMessage[]): AnthropicMessage[] {
   for (const msg of messages) {
     if (!msg || (msg.role !== 'user' && msg.role !== 'assistant')) continue;
     if (Array.isArray(msg.content)) {
-      const blocks = msg.content.filter((b) => {
-        if (!b || typeof b !== 'object') return false;
-        if ((b as { type?: string }).type === 'text' && !(b as AnthropicTextBlock).text) return false;
+      const blocks = msg.content.filter((block) => {
+        if (!block || typeof block !== 'object') return false;
+        if (block.type === 'text' && !block.text) return false;
         return true;
       });
       if (!blocks.length) continue;

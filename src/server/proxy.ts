@@ -1,3 +1,7 @@
+// ==============================================================================
+// Helpers
+// ==============================================================================
+
 /**
  * Local HTTP proxy that exposes the Responses API and forwards translated
  * requests to the configured upstream API format.
@@ -8,21 +12,25 @@ import { Readable } from 'node:stream';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-function fmtTime(d: Date): string {
-  return d.toLocaleTimeString('en-US', { hour12: false });
+// ==============================================================================
+// Helpers
+// ==============================================================================
+function fmtTime(date: Date): string {
+  return date.toLocaleTimeString('en-US', { hour12: false });
 }
 
 function fmtDuration(ms: number): string {
+  // ==============================================================================
+  // Server
+  // ==============================================================================
+
   if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  const m = Math.floor(ms / 60000);
-  const s = Math.round((ms % 60000) / 1000);
-  return `${m}:${String(s).padStart(2, '0')}`;
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.round((ms % 60000) / 1000);
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
-import {
-  createResponsesFetch,
-  type CreateResponsesFetchOptions,
-} from '../fetch.js';
+import { createResponsesFetch, type CreateResponsesFetchOptions } from '../fetch.js';
 
 export interface StartProxyOptions extends Omit<CreateResponsesFetchOptions, 'passthroughFetch'> {
   /** Host to bind to. Defaults to `127.0.0.1`. */
@@ -34,7 +42,16 @@ export interface StartProxyOptions extends Omit<CreateResponsesFetchOptions, 'pa
   /** Optional logger. Defaults to `console`. Pass `null` to silence. */
   logger?: Pick<Console, 'log' | 'warn' | 'error'> | null;
   /** Optional callback to receive cache statistics after each request completes. */
-  onCacheStats?: (stats: { cachedTokens: number; cacheCreationTokens: number; inputTokens: number; outputTokens: number; totalTokens: number; method?: string; url?: string; durationMs?: number }) => void;
+  onCacheStats?: (stats: {
+    cachedTokens: number;
+    cacheCreationTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    method?: string;
+    url?: string;
+    durationMs?: number;
+  }) => void;
 }
 
 export interface RunningProxy {
@@ -56,11 +73,15 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
   function updateRollingAverage(ms: number) {
     durationHistory.push(ms);
     if (durationHistory.length > 50) durationHistory.shift();
-    return durationHistory.reduce((a, b) => a + b, 0) / durationHistory.length;
+    return durationHistory.reduce((sum, val) => sum + val, 0) / durationHistory.length;
   }
 
   // Centralized status line for all active requests
   const activeRequests = new Map<string, { method: string; url: string; startTime: number }>();
+  // ==============================================================================
+  // Request Handler
+  // ==============================================================================
+
   let statusTimerId: ReturnType<typeof setInterval> | null = null;
 
   function drawStatusLine() {
@@ -84,33 +105,44 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
       activeRequests.delete(id);
       if (activeRequests.size === 0) {
         process.stdout.write('\r\x1b[K');
-        if (statusTimerId) { clearInterval(statusTimerId); statusTimerId = null; }
+        if (statusTimerId) {
+          clearInterval(statusTimerId);
+          statusTimerId = null;
+        }
       }
     },
   };
 
-  const requestInfo = { method: '', url: '', startTime: 0, resultLog: '' as string };
+  const requestInfo = { method: '', url: '', startTime: 0, resultLog: '' };
 
   const upstreamCapture: {
     request?: { url: string; method: string; headers: Record<string, string>; body: unknown };
-    response?: { status: number; statusText: string; headers: Record<string, string>; body: unknown };
+    response?: {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: unknown;
+    };
   } = {};
 
   const baseFetch = options.fetch ?? globalThis.fetch;
   const capturingFetch: typeof fetch = async (input, init) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
-    const method = (init?.method ?? (input as Request)?.method ?? 'GET').toUpperCase();
+    const url =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const method = (init?.method ?? input?.method ?? 'GET').toUpperCase();
     const reqHeaders = headersInitToObject(init?.headers);
     let reqBody: unknown = undefined;
     if (init?.body != null) {
       if (typeof init.body === 'string') reqBody = tryParseJson(init.body);
-      else if (init.body instanceof ArrayBuffer) reqBody = tryParseJson(new TextDecoder().decode(init.body));
-      else if (ArrayBuffer.isView(init.body)) reqBody = tryParseJson(new TextDecoder().decode(init.body as Uint8Array));
+      else if (init.body instanceof ArrayBuffer)
+        reqBody = tryParseJson(new TextDecoder().decode(init.body));
+      else if (ArrayBuffer.isView(init.body))
+        reqBody = tryParseJson(new TextDecoder().decode(init.body));
       else reqBody = String(init.body);
     }
     upstreamCapture.request = { url, method, headers: reqHeaders, body: reqBody };
 
-    const resp = await baseFetch(input as RequestInfo, init);
+    const resp = await baseFetch(input, init);
 
     if (!resp.ok) {
       const clone = resp.clone();
@@ -158,9 +190,8 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
       const color = ratio < 0.8 ? '\x1b[32m' : ratio < 1.5 ? '\x1b[33m' : '\x1b[31m';
       const reset = '\x1b[0m';
       const logMsg = `[${fmtTime(new Date())}] -> 200 (${color}${fmtDuration(durationMs)}${reset} avg=${fmtDuration(Math.round(avg))}) [${parts.join(', ')}]`;
-      requestInfo.resultLog = stats.cachedTokens < 1024 && billedTokens > 0
-        ? `⚠️ NO CACHE -- ${logMsg}`
-        : logMsg;
+      requestInfo.resultLog =
+        stats.cachedTokens < 1024 && billedTokens > 0 ? `⚠️ NO CACHE -- ${logMsg}` : logMsg;
 
       if (options.onCacheStats) {
         options.onCacheStats({
@@ -217,7 +248,10 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
 
   return new Promise((resolve, reject) => {
     server.listen(port, host, () => {
-      const actualPort = (server.address() as { port: number }).port;
+      const actualPort = (() => {
+        const addr: { port: number } = server.address();
+        return addr.port;
+      })();
       const url = `http://${host}:${actualPort}`;
       logger?.log(`Proxy listening on ${url}`);
       logger?.log(`Upstream format: ${options.upstreamFormat}`);
@@ -251,7 +285,12 @@ async function handleRequest(
     url: string;
     upstreamCapture: {
       request?: { url: string; method: string; headers: Record<string, string>; body: unknown };
-      response?: { status: number; statusText: string; headers: Record<string, string>; body: unknown };
+      response?: {
+        status: number;
+        statusText: string;
+        headers: Record<string, string>;
+        body: unknown;
+      };
     };
     requestInfo: { resultLog: string };
     requestTracker: { add: (method: string, url: string) => string; remove: (id: string) => void };
@@ -299,11 +338,15 @@ async function handleRequest(
     opts.requestTracker.remove(requestId);
     if (opts.logger) {
       if (response.status >= 400) {
-        process.stdout.write(`\r\x1b[K<-- ${response.status}  (${fmtDuration(Date.now() - requestStart)})\n`);
+        process.stdout.write(
+          `\r\x1b[K<-- ${response.status}  (${fmtDuration(Date.now() - requestStart)})\n`,
+        );
       } else if (opts.requestInfo.resultLog) {
         process.stdout.write(`\r\x1b[K${opts.requestInfo.resultLog}\n`);
       } else {
-        process.stdout.write(`\r\x1b[K<-- ${response.status}  (${fmtDuration(Date.now() - requestStart)})\n`);
+        process.stdout.write(
+          `\r\x1b[K<-- ${response.status}  (${fmtDuration(Date.now() - requestStart)})\n`,
+        );
       }
     }
     if (response.status >= 400) {
@@ -342,7 +385,8 @@ async function handleRequest(
       return;
     }
 
-    const nodeStream = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
+    const typedBody: import('node:stream/web').ReadableStream<Uint8Array> = response.body!;
+    const nodeStream = Readable.fromWeb(typedBody);
     nodeStream.pipe(res);
     await new Promise<void>((resolve, reject) => {
       nodeStream.once('end', resolve);
@@ -358,7 +402,10 @@ async function handleRequest(
 function readIncomingBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on('data', (chunk) => chunks.push(chunk as Buffer));
+    req.on('data', (chunk) => {
+      const buf: Buffer = chunk;
+      chunks.push(buf);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
@@ -382,8 +429,8 @@ function headersToObject(headers: Headers): Record<string, string> {
 }
 
 function setCorsHeaders(res: ServerResponse): void {
-  const h = corsHeaders();
-  for (const [k, v] of Object.entries(h)) res.setHeader(k, v);
+  const headers = corsHeaders();
+  for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
 }
 
 function corsHeaders(): Record<string, string> {
@@ -396,29 +443,29 @@ function corsHeaders(): Record<string, string> {
   };
 }
 
-function tryParseJson(s: string | undefined | null): unknown {
-  if (!s) return s ?? null;
+function tryParseJson(str: string | undefined | null): unknown {
+  if (!str) return str ?? null;
   try {
-    return JSON.parse(s);
+    return JSON.parse(str);
   } catch {
-    return s;
+    return str;
   }
 }
 
-function headersInitToObject(h: HeadersInit | undefined): Record<string, string> {
+function headersInitToObject(headersInit: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
-  if (!h) return out;
-  if (typeof Headers !== 'undefined' && h instanceof Headers) {
-    h.forEach((v, k) => {
-      out[k.toLowerCase()] = v;
+  if (!headersInit) return out;
+  if (typeof Headers !== 'undefined' && headersInit instanceof Headers) {
+    headersInit.forEach((value, key) => {
+      out[key.toLowerCase()] = value;
     });
     return out;
   }
-  if (Array.isArray(h)) {
-    for (const [k, v] of h) out[String(k).toLowerCase()] = String(v);
+  if (Array.isArray(headersInit)) {
+    for (const [key, value] of headersInit) out[String(key).toLowerCase()] = String(value);
     return out;
   }
-  for (const [k, v] of Object.entries(h)) out[k.toLowerCase()] = String(v);
+  for (const [key, value] of Object.entries(headersInit)) out[key.toLowerCase()] = String(value);
   return out;
 }
 
@@ -427,7 +474,12 @@ function saveErrorDump(dump: {
   url: string;
   clientRequest: { headers: Record<string, string>; body: unknown };
   upstreamRequest?: { url: string; method: string; headers: Record<string, string>; body: unknown };
-  upstreamResponse?: { status: number; statusText: string; headers: Record<string, string>; body: unknown };
+  upstreamResponse?: {
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: unknown;
+  };
   proxyResponse: { status: number; headers: Record<string, string>; body: unknown };
 }): string {
   const dir = resolve(process.cwd(), 'logs');
@@ -449,8 +501,8 @@ function saveErrorDump(dump: {
 function redactAuth(headers: Record<string, string> | undefined): void {
   if (!headers) return;
   for (const key of Object.keys(headers)) {
-    const k = key.toLowerCase();
-    if (k === 'authorization' || k === 'x-api-key' || k === 'api-key' || k === 'cookie') {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === 'authorization' || k === 'x-api-key' || k === 'api-key' || k === 'cookie') {
       headers[key] = '[REDACTED]';
     }
   }

@@ -1,3 +1,7 @@
+// ==============================================================================
+// Main Translation
+// ==============================================================================
+
 import type {
   ResponsesRequest,
   ResponsesInputItem,
@@ -9,7 +13,6 @@ import type {
   OpenAiChatMessage,
   OpenAiChatRequest,
   OpenAiChatTool,
-  OpenAiChatToolCall,
   OpenAiChatToolChoice,
 } from '../../types/openai_chat.js';
 import { makeId } from '../../utils/id.js';
@@ -23,7 +26,6 @@ export interface TranslateRequestOptions {
   /** Placeholder string for backfilled reasoning_content. Defaults to '.'. */
   reasoningPlaceholder?: string;
   /** If true, strip `strict` from function tools (some upstreams reject it). */
-  stripStrict?: boolean;
   /** If true, drop image/file parts from user messages (e.g. DeepSeek text-only models). */
   dropImages?: boolean;
 }
@@ -43,11 +45,7 @@ export function translateRequest(
   if (systemContent) messages.push({ role: 'system', content: systemContent });
 
   const inputItems: ResponsesInputItem[] =
-    typeof data.input === 'string'
-      ? [data.input]
-      : Array.isArray(data.input)
-        ? data.input
-        : [];
+    typeof data.input === 'string' ? [data.input] : Array.isArray(data.input) ? data.input : [];
 
   for (const raw of inputItems) {
     if (typeof raw === 'string') {
@@ -55,7 +53,8 @@ export function translateRequest(
       continue;
     }
     if (!raw || typeof raw !== 'object') continue;
-    processInputItem(raw as Record<string, unknown>, messages, options.dropImages);
+    const rawItem: Record<string, unknown> = raw;
+    processInputItem(rawItem, messages, options.dropImages);
   }
 
   const request: OpenAiChatRequest = {
@@ -65,8 +64,14 @@ export function translateRequest(
 
   if (typeof data.temperature === 'number') request.temperature = data.temperature;
   if (typeof data.top_p === 'number') request.top_p = data.top_p;
+<<<<<<< HEAD
+=======
   const effort = typeof data.reasoning?.effort === 'string' ? data.reasoning.effort : undefined;
-  if (effort) (request as Record<string, unknown>).reasoning_effort = effort;
+  if (effort) {
+    const req: Record<string, unknown> = request;
+    req.reasoning_effort = effort;
+  }
+>>>>>>> fix: apply ESLint rules - add consistent-type-assertions (no as), fix no-one-letter-vars rule bug
 
   const maxTokens =
     (typeof data.max_output_tokens === 'number' && data.max_output_tokens) ||
@@ -74,7 +79,7 @@ export function translateRequest(
     options.defaultMaxTokens;
   if (typeof maxTokens === 'number') request.max_tokens = maxTokens;
 
-  const tools = mapTools(data.tools ?? [], options.stripStrict);
+  const tools = mapTools(data.tools ?? []);
   if (tools.length) {
     request.tools = tools;
     const toolChoice = mapToolChoice(data.tool_choice);
@@ -107,7 +112,8 @@ function buildSystemContent(instructions: ResponsesRequest['instructions']): str
   let out = '';
   for (const block of instructions) {
     if (typeof block === 'string') out += block;
-    else if (block && typeof block === 'object') out += String((block as { text?: string }).text ?? '');
+    else if (block && typeof block === 'object') const blockObj: { text?: string } = block;
+    out += String(blockObj.text ?? '');
   }
   return out;
 }
@@ -117,7 +123,7 @@ function processInputItem(
   messages: OpenAiChatMessage[],
   dropImages?: boolean,
 ): void {
-  const itemType = (item.type as string) || 'message';
+  const itemType: string = String(item.type) || 'message';
 
   const getLastAssistant = (): OpenAiChatMessage => {
     const last = messages[messages.length - 1];
@@ -128,10 +134,14 @@ function processInputItem(
   };
 
   if (itemType === 'message' || itemType === 'agentMessage') {
-    let role = (item.role as string) || 'user';
+    // ==============================================================================
+    // Helpers
+    // ==============================================================================
+
+    let role: string = String(item.role) || 'user';
     if (role === 'developer') role = 'system';
 
-    let reasoningContent = (item.reasoning_content as string | undefined) ?? '';
+    let reasoningContent: string = String(item.reasoning_content ?? '');
     const rawContent = item.content;
 
     if (role === 'assistant' || role === 'model') {
@@ -143,18 +153,23 @@ function processInputItem(
           if (typeof part === 'string') {
             content += part;
           } else if (part && typeof part === 'object') {
-            const p = part as ResponsesContentPart;
-            if (p.type === 'input_text' || p.type === 'text' || p.type === 'output_text') {
-              content += String(p.text ?? '');
-            } else if (p.type === 'reasoning_text') {
-              reasoningContent += String(p.text ?? '');
+            const contentPart: ResponsesContentPart = part;
+            if (
+              contentPart.type === 'input_text' ||
+              contentPart.type === 'text' ||
+              contentPart.type === 'output_text'
+            ) {
+              content += String(contentPart.text ?? '');
+            } else if (contentPart.type === 'reasoning_text') {
+              reasoningContent += String(contentPart.text ?? '');
             }
           }
         }
       }
       const amsg = getLastAssistant();
       if (content) {
-        amsg.content = ((amsg.content as string | null | undefined) ?? '') + content;
+        const ac: string | null | undefined = amsg.content;
+        amsg.content = (ac ?? '') + content;
       }
       if (reasoningContent) {
         amsg.reasoning_content = (amsg.reasoning_content ?? '') + reasoningContent;
@@ -170,30 +185,35 @@ function processInputItem(
           if (typeof part === 'string') {
             contentBlocks.push({ type: 'text', text: part });
           } else if (part && typeof part === 'object') {
-            const p = part as ResponsesContentPart;
-            if (p.type === 'input_text' || p.type === 'text' || p.type === 'output_text') {
-              contentBlocks.push({ type: 'text', text: String(p.text ?? '') });
-            } else if (p.type === 'reasoning_text') {
-              reasoningContent += String(p.text ?? '');
-            } else if (p.type === 'input_image' || p.type === 'image' || p.type === 'image_url') {
+            const contentPart: ResponsesContentPart = part;
+            if (
+              contentPart.type === 'input_text' ||
+              contentPart.type === 'text' ||
+              contentPart.type === 'output_text'
+            ) {
+              contentBlocks.push({ type: 'text', text: String(contentPart.text ?? '') });
+            } else if (contentPart.type === 'reasoning_text') {
+              reasoningContent += String(contentPart.text ?? '');
+            } else if (
+              contentPart.type === 'input_image' ||
+              contentPart.type === 'image' ||
+              contentPart.type === 'image_url'
+            ) {
               if (dropImages) continue;
               let url = '';
-              const imgUrl = (p as { image_url?: string | { url: string } }).image_url;
+              const partWithImage: { image_url?: string | { url: string } } = part;
+              const imgUrl = partWithImage.image_url;
               if (typeof imgUrl === 'string') {
                 url = imgUrl;
               } else if (imgUrl && typeof imgUrl === 'object' && imgUrl.url) {
                 url = imgUrl.url;
               } else {
-                const imgData = String(
-                  (p as { data?: string; base64?: string }).data ??
-                    (p as { base64?: string }).base64 ??
-                    '',
-                );
+                const partWithData: { data?: string; base64?: string } = part;
+                const imgData = String(partWithData.data ?? partWithData.base64 ?? '');
                 if (imgData) {
+                  const partWithMime: { mime_type?: string; media_type?: string } = part;
                   const mimeType = String(
-                    (p as { mime_type?: string; media_type?: string }).mime_type ??
-                      (p as { media_type?: string }).media_type ??
-                      'image/png',
+                    partWithMime.mime_type ?? partWithMime.media_type ?? 'image/png',
                   );
                   url = imgData.startsWith('data:')
                     ? imgData
@@ -203,16 +223,16 @@ function processInputItem(
               if (url) {
                 contentBlocks.push({ type: 'image_url', image_url: { url } });
               }
-            } else if (p.type === 'input_file' || p.type === 'file') {
-              const fileData = String(
-                (p as { file_data?: string; data?: string }).file_data ??
-                  (p as { data?: string }).data ??
-                  '',
-              );
+            } else if (partItem.type === 'input_file' || partItem.type === 'file') {
+              const partFile: {
+                file_data?: string;
+                data?: string;
+                mime_type?: string;
+                media_type?: string;
+              } = part;
+              const fileData = String(partFile.file_data ?? partFile.data ?? '');
               const mimeType = String(
-                (p as { mime_type?: string; media_type?: string }).mime_type ??
-                  (p as { media_type?: string }).media_type ??
-                  'application/pdf',
+                partFile.mime_type ?? partFile.media_type ?? 'application/pdf',
               );
               if (fileData) {
                 const url = fileData.startsWith('data:')
@@ -241,7 +261,8 @@ function processInputItem(
     if (Array.isArray(rawList)) {
       for (const cp of rawList) {
         if (typeof cp === 'string') content += cp;
-        else if (cp && typeof cp === 'object') content += String((cp as { text?: string }).text ?? '');
+        else if (cp && typeof cp === 'object') const cpObj: { text?: string } = cp;
+        content += String(cpObj.text ?? '');
       }
     } else if (typeof rawList === 'string') {
       content += rawList;
@@ -281,12 +302,9 @@ function processToolCall(
   messages: OpenAiChatMessage[],
   getLastAssistant: () => OpenAiChatMessage,
 ): void {
-  const callId =
-    (item.call_id as string | undefined) ||
-    (item.id as string | undefined) ||
-    makeId('call');
-  let name = item.name as string | undefined;
-  const itemType = item.type as string | undefined;
+  const callId: string = String(item.call_id ?? '') || String(item.id ?? '') || makeId('call');
+  let name: string | undefined = item.name === undefined ? undefined : String(item.name);
+  const itemType: string | undefined = item.type === undefined ? undefined : String(item.type);
 
   if (!name) {
     if (itemType === 'commandExecution') name = 'run_shell_command';
@@ -303,18 +321,20 @@ function processToolCall(
   if (isEmpty(args)) {
     if (itemType === 'commandExecution') {
       args = {
-        command: (item.command as unknown) ?? '',
-        dir_path: (item.cwd as unknown) ?? '.',
+        command: item.command ?? '',
+        dir_path: item.cwd ?? '.',
       };
     } else if (itemType === 'local_shell_call') {
-      const action = (item.action as Record<string, unknown> | undefined) ?? {};
-      const exec = (action.exec as Record<string, unknown> | undefined) ?? {};
+      const action: Record<string, unknown> = item.action === undefined ? {} : item.action;
+      const execChild: Record<string, unknown> = action.exec === undefined ? {} : action.exec;
       args = {
-        command: exec.command ?? [],
-        working_directory: exec.working_directory,
+        command: execChild.command ?? [],
+        working_directory: execChild.working_directory,
       };
     } else if (itemType === 'fileChange') {
-      const changes = (item.changes as Array<Record<string, unknown>> | undefined) ?? [];
+      const changes: Array<Record<string, unknown>> = Array.isArray(item.changes)
+        ? item.changes
+        : [];
       const path = changes[0]?.path ?? 'unknown';
       args = { file_path: path };
     }
@@ -341,11 +361,8 @@ function processToolCall(
   void messages;
 }
 
-function processToolOutput(
-  item: Record<string, unknown>,
-  messages: OpenAiChatMessage[],
-): void {
-  const callId = (item.call_id as string | undefined) || (item.id as string | undefined);
+function processToolOutput(item: Record<string, unknown>, messages: OpenAiChatMessage[]): void {
+  const callId: string | undefined = item.call_id === undefined ? undefined : String(item.call_id);
   const outputRaw = item.output ?? item.content ?? item.stdout ?? '';
 
   let content = '';
@@ -355,12 +372,13 @@ function processToolOutput(
     for (const part of outputRaw) {
       if (typeof part === 'string') content += part;
       else if (part && typeof part === 'object') {
-        const p = part as { type?: string; text?: string };
-        if (p.type === 'input_text' || p.type === 'text') content += String(p.text ?? '');
+        const partItem: { type?: string; text?: string } = part;
+        if (partItem.type === 'input_text' || partItem.type === 'text')
+          content += String(partItem.text ?? '');
       }
     }
   } else if (outputRaw && typeof outputRaw === 'object') {
-    const obj = outputRaw as Record<string, unknown>;
+    const obj: Record<string, unknown> = outputRaw;
     content = String(obj.content ?? '');
     if (!content && obj.success === false) content = 'Error: Tool execution failed';
   }
@@ -376,7 +394,10 @@ function processToolOutput(
   });
 }
 
-function mapTools(tools: ResponsesTool[], stripStrict?: boolean): OpenAiChatTool[] {
+// ==============================================================================
+// Tool Mapping
+// ==============================================================================
+function mapTools(tools: ResponsesTool[]): OpenAiChatTool[] {
   /** If true, drop image/file parts from user messages (e.g. DeepSeek text-only models). */
   const out: OpenAiChatTool[] = [];
   for (const tool of tools) {
@@ -392,7 +413,7 @@ function mapTools(tools: ResponsesTool[], stripStrict?: boolean): OpenAiChatTool
         function: {
           name,
           description: fn?.description ?? tool.description ?? '',
-          parameters: params as Record<string, unknown>,
+          parameters: params,
         },
       });
       continue;
@@ -408,36 +429,16 @@ function mapToolChoice(choice: ResponsesToolChoice): OpenAiChatToolChoice | unde
     if (choice.type === 'function' && 'function' in choice && choice.function?.name) {
       return { type: 'function', function: { name: choice.function.name } };
     }
-    return choice as OpenAiChatToolChoice;
+    return choice;
   }
   return undefined;
 }
 
-function mapResponseFormat(text: unknown): Record<string, unknown> | undefined {
-  if (!text || typeof text !== 'object') return undefined;
-  const fmt = (text as { format?: unknown }).format;
-  if (!fmt || typeof fmt !== 'object') return undefined;
-  const f = fmt as { type?: string; name?: string; schema?: unknown; strict?: boolean };
-  if (f.type === 'json_schema') {
-    if (!f.schema) return undefined;
-    return {
-      type: 'json_schema',
-      json_schema: {
-        name: f.name ?? 'response',
-        schema: f.schema,
-        ...(typeof f.strict === 'boolean' ? { strict: f.strict } : {}),
-      },
-    };
-  }
-  if (f.type === 'json_object') return { type: 'json_object' };
-  return undefined;
-}
-
-function isEmpty(v: unknown): boolean {
-  if (v == null) return true;
-  if (typeof v === 'string') return v.length === 0;
-  if (Array.isArray(v)) return v.length === 0;
-  if (typeof v === 'object') return Object.keys(v as object).length === 0;
+function isEmpty(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === 'string') return value.length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object' && value !== null) return Object.keys(value).length === 0;
   return false;
 }
 
@@ -487,7 +488,11 @@ function repairToolMessageOrder(messages: OpenAiChatMessage[]): void {
     const tools: OpenAiChatMessage[] = [];
     const others: OpenAiChatMessage[] = [];
     for (const m of block.trailing) {
-      if (m.role === 'tool' && toolCallIds.has(m.tool_call_id as string)) {
+      if (
+        m.role === 'tool' &&
+        m.tool_call_id !== undefined &&
+        toolCallIds.has(String(m.tool_call_id))
+      ) {
         tools.push(m);
       } else {
         others.push(m);

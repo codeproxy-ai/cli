@@ -1,14 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startProxy, type RunningProxy } from '../src/server/proxy.js';
 
-function mockUpstream(): { fetch: typeof fetch; lastHeaders: () => Record<string, string>; lastBody: () => string } {
+function mockUpstream(): {
+  fetch: typeof fetch;
+  lastHeaders: () => Record<string, string>;
+  lastBody: () => string;
+} {
   let headers: Record<string, string> = {};
   let body = '';
-  const impl: typeof fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+  const impl: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
     body = String(init?.body ?? '');
-    headers = Object.fromEntries(
-      Object.entries((init?.headers ?? {}) as Record<string, string>),
-    );
+    const hdrs: Record<string, string> = init?.headers ?? {};
+    headers = Object.fromEntries(Object.entries(hdrs));
     return new Response(
       JSON.stringify({
         id: 'msg_1',
@@ -20,7 +23,7 @@ function mockUpstream(): { fetch: typeof fetch; lastHeaders: () => Record<string
       }),
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
-  }) as unknown as typeof fetch;
+  };
   return { fetch: impl, lastHeaders: () => headers, lastBody: () => body };
 }
 
@@ -31,7 +34,8 @@ describe('startProxy', () => {
   beforeAll(async () => {
     upstream = mockUpstream();
     proxy = await startProxy({
-      upstreamFormat: 'anthropic' , baseUrl: 'https://api.anthropic.com/v1/messages',
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
       host: '127.0.0.1',
       port: 0,
       fetch: upstream.fetch,
@@ -53,7 +57,7 @@ describe('startProxy', () => {
       body: JSON.stringify({ model: 'claude-sonnet-4-5', input: 'Hello' }),
     });
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { output: unknown[]; usage: { total_tokens: number } };
+    const json: { output: unknown[]; usage: { total_tokens: number } } = await res.json();
     expect(json.usage.total_tokens).toBe(6);
     expect(upstream.lastHeaders()['x-api-key']).toBe('sk-ant-test');
     const upstreamBody = JSON.parse(upstream.lastBody());

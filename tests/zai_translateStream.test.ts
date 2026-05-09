@@ -19,6 +19,10 @@ async function collect<T>(gen: AsyncGenerator<T>): Promise<T[]> {
   return out;
 }
 
+// ==============================================================================
+// translateStream (Zai -> Responses)
+// ==============================================================================
+
 describe('translateStream (Zai SSE -> Responses events)', () => {
   it('translates chat.completion chunks with text delta', async () => {
     const body = [
@@ -74,14 +78,16 @@ describe('translateStream (Zai SSE -> Responses events)', () => {
     );
 
     expect(events[0]?.type).toBe('response.created');
-    expect(events.some((e) => e.type === 'response.output_item.added')).toBe(true);
-    const deltas = events.filter((e) => e.type === 'response.output_text.delta');
+    expect(events.some((evt) => evt.type === 'response.output_item.added')).toBe(true);
+    const deltas = events.filter((evt) => evt.type === 'response.output_text.delta');
     expect(deltas.length).toBeGreaterThanOrEqual(1);
-    expect((deltas[0] as { delta: string }).delta).toBe('Hello');
+    const d0: { delta: string } = deltas[0];
+    expect(d0.delta).toBe('Hello');
 
     const completed = events[events.length - 1];
     expect(completed?.type).toBe('response.completed');
-    const response = (completed as { response: { usage: { output_tokens: number } } }).response;
+    const completedResponse: { response: { usage: { output_tokens: number } } } = completed;
+    const response = completedResponse.response;
     expect(response.usage.output_tokens).toBe(2);
   });
 
@@ -174,8 +180,8 @@ describe('translateStream (Zai SSE -> Responses events)', () => {
       translateStream(stream, { model: 'zai-gpt-4' }),
     );
 
-    expect(events.some((e) => e.type === 'response.output_item.added')).toBe(true);
-    const functionCallDeltas = events.filter((e) => e.type === 'response.output_item.done');
+    expect(events.some((evt) => evt.type === 'response.output_item.added')).toBe(true);
+    const functionCallDeltas = events.filter((evt) => evt.type === 'response.output_item.done');
     expect(functionCallDeltas.length).toBeGreaterThan(0);
   });
 
@@ -216,12 +222,15 @@ describe('translateStream (Zai SSE -> Responses events)', () => {
     );
 
     const localShellCalls = events.filter(
-      (e) =>
-        e.type === 'response.output_item.done' &&
-        (e as { item: { type: string } }).item?.type === 'local_shell_call',
+      (evt: { type: string; item?: { type: string } }) =>
+        evt.type === 'response.output_item.done' && evt.item?.type === 'local_shell_call',
     );
     expect(localShellCalls.length).toBeGreaterThan(0);
   });
+
+  // ==============================================================================
+  // Shell tool calls & edge cases
+  // ==============================================================================
 
   it('handles custom responseId and createdAt', async () => {
     const body = [
@@ -245,9 +254,8 @@ describe('translateStream (Zai SSE -> Responses events)', () => {
       translateStream(stream, { responseId: 'custom_id', createdAt: 1234567890 }),
     );
 
-    const createdEvent = events.find((e) => e.type === 'response.created') as {
-      response: { id: string; created_at: number };
-    };
+    const found = events.find((evt) => evt.type === 'response.created');
+    const createdEvent: { response: { id: string; created_at: number } } = found;
     expect(createdEvent?.response?.id).toBe('custom_id');
     expect(createdEvent?.response?.created_at).toBe(1234567890);
   });

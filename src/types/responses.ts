@@ -1,3 +1,6 @@
+// ==============================================================================
+// Responses API Types
+// ==============================================================================
 /**
  * OpenAI Responses API type definitions (subset used by this library).
  * Only the fields relevant to request translation and event emission are typed.
@@ -86,7 +89,11 @@ export interface ResponsesLocalShellCallItem {
   type: 'local_shell_call';
   id?: string;
   call_id?: string;
-  action?: { type?: string; exec?: { command?: string[]; working_directory?: string }; command?: string[] };
+  action?: {
+    type?: string;
+    exec?: { command?: string[]; working_directory?: string };
+    command?: string[];
+  };
   [key: string]: unknown;
 }
 

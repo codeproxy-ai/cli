@@ -1,3 +1,8 @@
+// ==============================================================================
+// URL & Format Helpers
+// ==============================================================================
+
+// === Config & Types ===
 /**
  * Drop-in `fetch` wrapper that translates OpenAI Responses API traffic
  * to an upstream API format (Anthropic Messages or OpenAI Chat).
@@ -6,7 +11,11 @@
 import * as anthropic from './translate/anthropic/index.js';
 import * as openai from './translate/openai/index.js';
 import { encodeSseEvent } from './utils/sse.js';
-import type { ResponsesRequest, ResponsesStreamEvent, ResponsesResponse } from './types/responses.js';
+import type {
+  ResponsesRequest,
+  ResponsesStreamEvent,
+  ResponsesResponse,
+} from './types/responses.js';
 import type { AnthropicResponse } from './types/anthropic.js';
 import type { OpenAiChatResponse } from './types/openai_chat.js';
 
@@ -40,6 +49,10 @@ export interface CreateResponsesFetchOptions {
   /** Optional callback to receive cache statistics. */
   onCacheStats?: (stats: CacheStats) => void;
   /** Override reasoning_effort sent to the upstream model (OpenAI Chat / Anthropic). */
+  // ==============================================================================
+  // Request Building
+  // ==============================================================================
+
   reasoning_effort?: string;
   /** Override thinking configuration sent to the upstream model. */
   thinking?: unknown;
@@ -65,7 +78,9 @@ export function createResponsesFetch(options: CreateResponsesFetchOptions): type
     ? normalizeFormat(rawFormat)
     : (inferFormatFromUrl(options.baseUrl) ?? 'openai-chat');
   if (!format) {
-    throw new Error(`Unsupported upstream format: ${options.upstreamFormat}. Use 'anthropic' or 'openai-chat'`);
+    throw new Error(
+      `Unsupported upstream format: ${options.upstreamFormat}. Use 'anthropic' or 'openai-chat'`,
+    );
   }
 
   const baseFetch = options.fetch ?? globalThis.fetch;
@@ -74,14 +89,17 @@ export function createResponsesFetch(options: CreateResponsesFetchOptions): type
 
   return async (input, init) => {
     const url = urlOf(input);
-    if (!isResponsesEndpoint(url)) return passthrough(input as RequestInfo, init);
+    if (!isResponsesEndpoint(url)) return passthrough(input, init);
 
     const { body, signal, method, headers } = await extractRequest(input, init);
-    if (method !== 'POST') return passthrough(input as RequestInfo, init);
+    if (method !== 'POST') return passthrough(input, init);
 
     let parsed: ResponsesRequest | undefined;
-    try { parsed = body ? (JSON.parse(body) as ResponsesRequest) : undefined; }
-    catch { return jsonErrorResponse(400, 'Invalid JSON body for /responses'); }
+    try {
+      parsed = body ? JSON.parse(body) : undefined;
+    } catch {
+      return jsonErrorResponse(400, 'Invalid JSON body for /responses');
+    }
     if (!parsed) return jsonErrorResponse(400, 'Missing body for /responses');
 
     if (options.model) parsed.model = options.model;
@@ -93,43 +111,61 @@ export function createResponsesFetch(options: CreateResponsesFetchOptions): type
 
 function normalizeBaseUrl(url: string, format: UpstreamFormat): string {
   try {
-    const u = new URL(url);
-    const path = u.pathname.replace(/\/+$/, '');
+    const parsedUrl = new URL(url);
+    const path = parsedUrl.pathname.replace(/\/+$/, '');
     if (format === 'anthropic') {
-      if (path.endsWith('/v1/messages') || path.endsWith('/messages')) return u.toString();
-      if (path.endsWith('/v1')) { u.pathname += '/messages'; return u.toString(); }
-      u.pathname = '/v1/messages';
+      if (path.endsWith('/v1/messages') || path.endsWith('/messages')) return parsedUrl.toString();
+      if (path.endsWith('/v1')) {
+        parsedUrl.pathname += '/messages';
+        return parsedUrl.toString();
+      }
+      parsedUrl.pathname = '/v1/messages';
     } else {
-      if (path.endsWith('/v1/chat/completions') || path.endsWith('/chat/completions')) return u.toString();
-      if (path.endsWith('/v1')) { u.pathname += '/chat/completions'; return u.toString(); }
-      u.pathname = '/v1/chat/completions';
+      if (path.endsWith('/v1/chat/completions') || path.endsWith('/chat/completions'))
+        return parsedUrl.toString();
+      if (path.endsWith('/v1')) {
+        parsedUrl.pathname += '/chat/completions';
+        return parsedUrl.toString();
+      }
+      parsedUrl.pathname = '/v1/chat/completions';
     }
-    return u.toString();
+    return parsedUrl.toString();
   } catch {
     return url;
   }
 }
 
-function normalizeFormat(v: string): UpstreamFormat | null {
-  return v === 'anthropic' || v === 'openai-chat' ? (v as UpstreamFormat) : null;
+function normalizeFormat(format: string): UpstreamFormat | null {
+  const fmt: UpstreamFormat | null =
+    format === 'anthropic' || format === 'openai-chat' ? format : null;
+  return fmt;
 }
 
 function inferFormatFromUrl(baseUrl: string): UpstreamFormat | null {
   try {
-    const u = new URL(baseUrl);
-    const path = u.pathname.replace(/\/+$/, '');
-    if (/\/messages$/.test(path) || u.hostname.toLowerCase().includes('anthropic')) return 'anthropic';
+    const parsedUrl = new URL(baseUrl);
+    const path = parsedUrl.pathname.replace(/\/+$/, '');
+    if (/\/messages$/.test(path) || parsedUrl.hostname.toLowerCase().includes('anthropic'))
+      return 'anthropic';
     if (/\/chat\/completions$/.test(path)) return 'openai-chat';
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 
 // ── request extraction ──
 
 function isResponsesEndpoint(url: string): boolean {
-  try { return /\/v1\/responses\/?$/.test(new URL(url, 'http://_internal_').pathname); }
-  catch { return /\/v1\/responses(?:\?|$)/.test(url); }
+  try {
+    return /\/v1\/responses\/?$/.test(new URL(url, 'http://_internal_').pathname);
+  } catch {
+    return /\/v1\/responses(?:\?|$)/.test(url);
+  }
 }
+// ==============================================================================
+// Main Fetch Function
+// ==============================================================================
 
 function urlOf(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;
@@ -142,34 +178,47 @@ function parseHeaders(raw: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!raw) return out;
   if (typeof Headers !== 'undefined' && raw instanceof Headers) {
-    raw.forEach((v, k) => { out[k.toLowerCase()] = v; });
+    raw.forEach((val, key) => {
+      out[key.toLowerCase()] = val;
+    });
     return out;
   }
   if (Array.isArray(raw)) {
     for (const [k, v] of raw) out[String(k).toLowerCase()] = String(v);
     return out;
   }
-  for (const [k, v] of Object.entries(raw as Record<string, string>)) out[k.toLowerCase()] = String(v);
+  for (const [k, v] of Object.entries(raw)) out[k.toLowerCase()] = String(v);
   return out;
 }
 
 async function extractRequest(
   input: RequestInfo | URL,
   init?: RequestInit,
-): Promise<{ body: string | undefined; signal: AbortSignal | undefined; method: string; headers: Record<string, string> }> {
+): Promise<{
+  body: string | undefined;
+  signal: AbortSignal | undefined;
+  method: string;
+  headers: Record<string, string>;
+}> {
   if (typeof Request !== 'undefined' && input instanceof Request) {
     const text = await input.clone().text();
-    const headers = parseHeaders(input.headers as unknown as HeadersInit);
+    const headers: HeadersInit = parseHeaders(input.headers);
     return { body: text || undefined, signal: input.signal, method: input.method, headers };
   }
   const method = init?.method?.toUpperCase() ?? 'GET';
-  const body = init?.body != null ? (typeof init.body === 'string' ? init.body : await readBody(init.body)) : undefined;
+  const body =
+    init?.body != null
+      ? typeof init.body === 'string'
+        ? init.body
+        : await readBody(init.body)
+      : undefined;
   return { body, signal: init?.signal, method, headers: parseHeaders(init?.headers) };
 }
 
 async function readBody(body: BodyInit): Promise<string> {
   if (typeof body === 'string') return body;
-  if (body instanceof Uint8Array || body instanceof ArrayBuffer) return new TextDecoder().decode(body);
+  if (body instanceof Uint8Array || body instanceof ArrayBuffer)
+    return new TextDecoder().decode(body);
   return String(body);
 }
 
@@ -181,6 +230,10 @@ async function handleResponses(
   options: CreateResponsesFetchOptions,
   baseFetch: typeof fetch,
   incomingHeaders: Record<string, string>,
+  // ==============================================================================
+  // HTTP Client
+  // ==============================================================================
+
   signal: AbortSignal | undefined,
   dropImages?: boolean,
 ): Promise<Response> {
@@ -198,11 +251,18 @@ async function handleResponses(
 
   const streaming = request.stream ?? false;
   const resolvedUrl = normalizeBaseUrl(options.baseUrl, format);
-  const { upstreamBody, requestMetadata } = buildUpstreamBody(request, format, streaming, options.baseUrl, dropImages, options.reasoning_effort, options.thinking);
+  const { upstreamBody, requestMetadata } = buildUpstreamBody(
+    request,
+    format,
+    streaming,
+    options.baseUrl,
+    dropImages,
+    options.reasoning_effort,
+    options.thinking,
+  );
   const upstreamHeaders = buildUpstreamHeaders(format, options, incomingHeaders);
 
-  let upstream: Response;
-  upstream = await baseFetch(resolvedUrl, {
+  const upstream = await baseFetch(resolvedUrl, {
     method: 'POST',
     headers: upstreamHeaders,
     body: JSON.stringify(upstreamBody),
@@ -210,34 +270,56 @@ async function handleResponses(
   });
 
   if (!upstream.ok) {
-    return new Response(await upstream.text().catch(() => ''), { status: upstream.status, headers: { 'content-type': 'application/json' } });
+    return new Response(await upstream.text().catch(() => ''), {
+      status: upstream.status,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   if (!streaming) {
-    const body = (await upstream.json()) as AnthropicResponse | OpenAiChatResponse;
-    const translated = format === 'anthropic'
-      ? anthropic.translateResponse(body as AnthropicResponse, { model: request.model })
-      : openai.translateResponse(body as OpenAiChatResponse, { model: request.model });
+    const body: AnthropicResponse | OpenAiChatResponse = await upstream.json();
+    const translated =
+      format === 'anthropic'
+        ? anthropic.translateResponse(body, { model: request.model })
+        : openai.translateResponse(body, { model: request.model });
     options.onCacheStats?.(extractCacheStatsFromResponse(translated));
-    return new Response(JSON.stringify(translated), { status: 200, headers: { 'content-type': 'application/json' } });
+    return new Response(JSON.stringify(translated), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
   }
 
   if (!upstream.body) return jsonErrorResponse(502, 'Upstream streaming response has no body');
 
-  const events = format === 'anthropic'
-    ? anthropic.translateStream(upstream.body, { model: request.model, requestMetadata })
-    : openai.translateStream(upstream.body, { model: request.model, requestMetadata });
+  const events =
+    format === 'anthropic'
+      ? anthropic.translateStream(upstream.body, { model: request.model, requestMetadata })
+      : openai.translateStream(upstream.body, { model: request.model, requestMetadata });
 
-  return new Response(responsesEventsToSseStream(collectCacheStatsFromStream(events, options.onCacheStats)), {
-    status: 200,
-    headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache', connection: 'keep-alive' },
-  });
+  return new Response(
+    responsesEventsToSseStream(collectCacheStatsFromStream(events, options.onCacheStats)),
+    {
+      status: 200,
+      headers: {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache',
+        connection: 'keep-alive',
+      },
+    },
+  );
 }
 
 // ── upstream body ──
 
 function buildRequestMetadata(request: ResponsesRequest, temperature?: number, top_p?: number) {
-  return { temperature, top_p, tools: (request.tools as unknown[]) ?? [], tool_choice: request.tool_choice, store: request.store ?? true, metadata: (request.metadata as Record<string, unknown>) ?? {} };
+  return {
+    temperature,
+    top_p,
+    tools: request.tools ?? [],
+    tool_choice: request.tool_choice,
+    store: request.store ?? true,
+    metadata: request.metadata ?? {},
+  };
 }
 
 function buildUpstreamBody(
@@ -253,93 +335,136 @@ function buildUpstreamBody(
     const { request: ar } = anthropic.translateRequest(request);
     ar.stream = streaming;
     if (thinking !== undefined) {
-      (ar as Record<string, unknown>).thinking = thinking;
+      ar.thinking = thinking;
     } else if (reasoning_effort) {
       const effort = reasoning_effort.toLowerCase();
       if (effort === 'minimal') {
-        (ar as Record<string, unknown>).thinking = { type: 'disabled' };
+        ar.thinking = { type: 'disabled' };
       } else if (effort === 'low') {
-        (ar as Record<string, unknown>).thinking = { type: 'enabled', budget_tokens: 4096 };
+        ar.thinking = { type: 'enabled', budget_tokens: 4096 };
       } else if (effort === 'medium') {
-        (ar as Record<string, unknown>).thinking = { type: 'enabled', budget_tokens: 16384 };
+        ar.thinking = { type: 'enabled', budget_tokens: 16384 };
       } else if (effort === 'high') {
-        (ar as Record<string, unknown>).thinking = { type: 'enabled', budget_tokens: 32768 };
+        ar.thinking = { type: 'enabled', budget_tokens: 32768 };
       } else if (effort === 'xhigh') {
-        (ar as Record<string, unknown>).thinking = { type: 'enabled', budget_tokens: 65536 };
+        ar.thinking = { type: 'enabled', budget_tokens: 65536 };
       }
     }
-    return { upstreamBody: ar, requestMetadata: buildRequestMetadata(request, ar.temperature, ar.top_p) };
+    return {
+      upstreamBody: ar,
+      requestMetadata: buildRequestMetadata(request, ar.temperature, ar.top_p),
+    };
   }
   const { request: cr } = openai.translateRequest(request, { dropImages: dropImages });
   cr.stream = streaming;
-  if (streaming) (cr as Record<string, unknown>).stream_options = { include_usage: true };
-  if (reasoning_effort !== undefined) (cr as Record<string, unknown>).reasoning_effort = reasoning_effort;
-  if (thinking !== undefined) (cr as Record<string, unknown>).thinking = thinking;
-  return { upstreamBody: cr, requestMetadata: buildRequestMetadata(request, cr.temperature, cr.top_p) };
+  if (streaming) cr.stream_options = { include_usage: true };
+  if (reasoning_effort !== undefined) cr.reasoning_effort = reasoning_effort;
+  if (thinking !== undefined) cr.thinking = thinking;
+  return {
+    upstreamBody: cr,
+    requestMetadata: buildRequestMetadata(request, cr.temperature, cr.top_p),
+  };
 }
 
 // ── upstream headers ──
 
-function buildUpstreamHeaders(format: UpstreamFormat, options: CreateResponsesFetchOptions, incoming: Record<string, string>): Record<string, string> {
+function buildUpstreamHeaders(
+  format: UpstreamFormat,
+  options: CreateResponsesFetchOptions,
+  incoming: Record<string, string>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(incoming)) {
     if (DROPPED_HEADERS.has(key) || isClientSpecificHeader(key)) continue;
     out[key] = value;
   }
-  if (options.defaultHeaders) for (const [k, v] of Object.entries(options.defaultHeaders)) out[k.toLowerCase()] = v;
+  if (options.defaultHeaders)
+    for (const [k, v] of Object.entries(options.defaultHeaders)) out[k.toLowerCase()] = v;
   out['content-type'] = 'application/json';
   if (format === 'anthropic') {
     if (!out['anthropic-version']) out['anthropic-version'] = options.apiVersion ?? '2023-06-01';
     if (typeof out['authorization'] === 'string') {
-      const m = /^Bearer\s+(.+)$/i.exec(out['authorization']);
-      if (m) out['x-api-key'] = m[1].trim();
+      const match = /^Bearer\s+(.+)$/i.exec(out['authorization']);
+      if (match) out['x-api-key'] = match[1].trim();
     }
     delete out['authorization'];
   }
   return out;
 }
 
-const DROPPED_HEADERS = new Set(['host', 'content-length', 'connection', 'accept-encoding', 'accept', 'user-agent']);
+const DROPPED_HEADERS = new Set([
+  'host',
+  'content-length',
+  'connection',
+  'accept-encoding',
+  'accept',
+  'user-agent',
+]);
 
 function isClientSpecificHeader(key: string): boolean {
-  const k = key.toLowerCase();
-  return k.startsWith('openai-') || k.startsWith('x-stainless') || k.startsWith('x-codex-') || k === 'originator' || k === 'session_id' || k === 'x-client-request-id';
+  const keyLower = key.toLowerCase();
+  return (
+    keyLower.startsWith('openai-') ||
+    keyLower.startsWith('x-stainless') ||
+    keyLower.startsWith('x-codex-') ||
+    keyLower === 'originator' ||
+    keyLower === 'session_id' ||
+    keyLower === 'x-client-request-id'
+  );
 }
 
 // ── SSE stream ──
 
-function responsesEventsToSseStream(events: AsyncGenerator<ResponsesStreamEvent, void, void>): ReadableStream<Uint8Array> {
+function responsesEventsToSseStream(
+  events: AsyncGenerator<ResponsesStreamEvent, void, void>,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {
         const { value, done } = await events.next();
-        if (done) { controller.enqueue(encoder.encode('data: [DONE]\n\n')); controller.close(); return; }
+        if (done) {
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+          return;
+        }
         controller.enqueue(encoder.encode(encodeSseEvent(value && value.type, value)));
-      } catch (err) { controller.error(err); }
+      } catch (err) {
+        controller.error(err);
+      }
     },
-    async cancel() { try { await events.return?.(); } catch { /* noop */ } },
+    async cancel() {
+      try {
+        await events.return?.();
+      } catch {
+        /* noop */
+      }
+    },
   });
 }
 
 // ── cache stats ──
 
 function extractCacheStatsFromResponse(response: ResponsesResponse): CacheStats {
-  const u = response.usage;
+  const usage = response.usage;
   return {
-    cachedTokens: u?.input_tokens_details?.cached_tokens ?? 0,
-    cacheCreationTokens: u?.input_tokens_details?.cache_creation_tokens ?? 0,
-    inputTokens: u?.input_tokens ?? 0,
-    outputTokens: u?.output_tokens ?? 0,
-    totalTokens: u?.total_tokens ?? 0,
+    cachedTokens: usage?.input_tokens_details?.cached_tokens ?? 0,
+    cacheCreationTokens: usage?.input_tokens_details?.cache_creation_tokens ?? 0,
+    inputTokens: usage?.input_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? 0,
+    totalTokens: usage?.total_tokens ?? 0,
   };
 }
 
-async function* collectCacheStatsFromStream(events: AsyncGenerator<ResponsesStreamEvent, void, void>, onCacheStats?: (stats: CacheStats) => void): AsyncGenerator<ResponsesStreamEvent, void, void> {
+async function* collectCacheStatsFromStream(
+  events: AsyncGenerator<ResponsesStreamEvent, void, void>,
+  onCacheStats?: (stats: CacheStats) => void,
+): AsyncGenerator<ResponsesStreamEvent, void, void> {
   let lastStats: CacheStats | undefined;
   for await (const event of events) {
     if (event.type === 'response.completed') {
-      const resp = (event as unknown as { response?: ResponsesResponse }).response;
+      const eventResp: { response?: ResponsesResponse } = event;
+      const resp = eventResp.response;
       if (resp?.usage) lastStats = extractCacheStatsFromResponse(resp);
     }
     yield event;
@@ -358,15 +483,16 @@ function lastUserMessageHasImage(request: ResponsesRequest): boolean {
   for (let i = input.length - 1; i >= 0; i--) {
     const item = input[i];
     if (!item || typeof item !== 'object') continue;
-    if ((item as Record<string, unknown>).role !== 'user') continue;
+    const itemRecord: Record<string, unknown> = item;
+    if (itemRecord.role !== 'user') continue;
     // Found the last user message
-    const content = (item as Record<string, unknown>).content;
+    const content = itemRecord.content;
     if (!Array.isArray(content)) return false;
     for (const part of content) {
       if (part && typeof part === 'object') {
-        const p = part as Record<string, unknown>;
-        const t = p.type;
-        if (t === 'input_image' || t === 'image' || t === 'image_url') return true;
+        const partItem: Record<string, unknown> = part;
+        const type = partItem.type;
+        if (type === 'input_image' || t === 'image' || t === 'image_url') return true;
       }
     }
     return false;
@@ -377,5 +503,8 @@ function lastUserMessageHasImage(request: ResponsesRequest): boolean {
 // ── error helpers ──
 
 function jsonErrorResponse(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: { message, type: 'upstream_error', code: String(status) } }), { status, headers: { 'content-type': 'application/json' } });
+  return new Response(
+    JSON.stringify({ error: { message, type: 'upstream_error', code: String(status) } }),
+    { status, headers: { 'content-type': 'application/json' } },
+  );
 }

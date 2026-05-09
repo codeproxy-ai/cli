@@ -1,11 +1,7 @@
-import type {
-  OpenAiChatResponse,
-  OpenAiChatToolCall,
-} from '../../types/openai_chat.js';
+import type { OpenAiChatResponse, OpenAiChatToolCall } from '../../types/openai_chat.js';
 import type {
   ResponsesOutputFunctionCall,
   ResponsesOutputItem,
-  ResponsesOutputMessage,
   ResponsesResponse,
 } from '../../types/responses.js';
 import { makeId } from '../../utils/id.js';

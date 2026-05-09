@@ -1,3 +1,7 @@
+// ==============================================================================
+// Server Startup
+// ==============================================================================
+
 /**
  * `responses-proxy` CLI.
  *
@@ -67,11 +71,13 @@ function parseArgs(argv: string[]): CliArgs {
         out.cors = false;
         break;
       default:
-        if (arg.startsWith('--upstream-format=')) out.upstreamFormat = arg.slice('--upstream-format='.length);
+        if (arg.startsWith('--upstream-format='))
+          out.upstreamFormat = arg.slice('--upstream-format='.length);
         else if (arg.startsWith('--port=')) out.port = Number(arg.slice('--port='.length));
         else if (arg.startsWith('--host=')) out.host = arg.slice('--host='.length);
         else if (arg.startsWith('--base-url=')) out.baseUrl = arg.slice('--base-url='.length);
-        else if (arg.startsWith('--api-version=')) out.apiVersion = arg.slice('--api-version='.length);
+        else if (arg.startsWith('--api-version='))
+          out.apiVersion = arg.slice('--api-version='.length);
         else if (arg.startsWith('--apikey=')) out.apikey = arg.slice('--apikey='.length);
         else if (arg.startsWith('--model=')) out.model = arg.slice('--model='.length);
         else if (arg.startsWith('--config=')) out.config = arg.slice('--config='.length);
@@ -148,7 +154,8 @@ async function loadConfigFile(configPath: string): Promise<ConfigFile> {
 
   try {
     const content = readFileSync(configPath, 'utf-8');
-    return JSON.parse(content) as ConfigFile;
+    const parsed: ConfigFile = JSON.parse(content);
+    return parsed;
   } catch (error) {
     console.error(`Failed to load config from ${configPath}:`, error);
     process.exit(1);
@@ -160,6 +167,8 @@ async function loadConfigAndApplyOverrides(
   overrides: CliArgs,
 ): Promise<StartProxyOptions> {
   const config = await loadConfigFile(configPath);
+
+  const configRecord: Record<string, unknown> = config;
 
   const validation = validateConfig(config);
   if (!validation.valid) {
@@ -174,14 +183,20 @@ async function loadConfigAndApplyOverrides(
   }
 
   console.log(`Loaded config from: ${configPath}`);
-  console.log(`Current upstream: ${config.currentUpstream}${upstreamConfig.format ? ` (${upstreamConfig.format})` : ''}`);
-  console.log(`Model: ${upstreamConfig.model || "(not set)"}`);
-  const mergedEffort = upstreamConfig.reasoningEffort ?? (config as any).reasoningEffort;
+  console.log(
+    `Current upstream: ${config.currentUpstream}${upstreamConfig.format ? ` (${upstreamConfig.format})` : ''}`,
+  );
+  console.log(`Model: ${upstreamConfig.model || '(not set)'}`);
+  const mergedEffort = upstreamConfig.reasoningEffort ?? config.reasoningEffort;
   if (mergedEffort) console.log(`Reasoning effort: ${mergedEffort}`);
-  const mergedHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+  const mergedHeaders: Record<string, string> = { ...(config.headers ?? {}) };
   if (upstreamConfig.headers) Object.assign(mergedHeaders, upstreamConfig.headers);
-  if (mergedHeaders.authorization) mergedHeaders.authorization = "\"[REDACTED]\"";
-  if (Object.keys(mergedHeaders).length > 0) console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
+  if (mergedHeaders.authorization) mergedHeaders.authorization = '"[REDACTED]"';
+  if (Object.keys(mergedHeaders).length > 0)
+    console.log(`Headers: ${JSON.stringify(mergedHeaders)}`);
+  // ==============================================================================
+  // Proxy Launch
+  // ==============================================================================
 
   const options: StartProxyOptions = {
     upstreamFormat: upstreamConfig.format,
@@ -189,15 +204,22 @@ async function loadConfigAndApplyOverrides(
     apiVersion: overrides.apiVersion || upstreamConfig.apiVersion,
     model: overrides.model || upstreamConfig.model,
     host: overrides.host || upstreamConfig.host,
-    port: overrides.port !== undefined ? overrides.port : ((config as any).port ? Number((config as any).port) : upstreamConfig.port ? Number(upstreamConfig.port) : undefined),
-    timeoutMs: upstreamConfig.timeoutMs ?? (config as any).timeoutMs,
+    port:
+      overrides.port !== undefined
+        ? overrides.port
+        : configRecord.port
+          ? Number(configRecord.port)
+          : upstreamConfig.port
+            ? Number(upstreamConfig.port)
+            : undefined,
+    timeoutMs: upstreamConfig.timeoutMs ?? config.timeoutMs,
     dropImages: upstreamConfig.dropImages,
     cors: overrides.cors,
-    reasoning_effort: upstreamConfig.reasoningEffort ?? (config as any).reasoningEffort,
-    thinking: upstreamConfig.thinking ?? (config as any).thinking,
+    reasoning_effort: upstreamConfig.reasoningEffort ?? config.reasoningEffort,
+    thinking: upstreamConfig.thinking ?? config.thinking,
   };
 
-  const defaultHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+  const defaultHeaders: Record<string, string> = { ...(config.headers ?? {}) };
   if (upstreamConfig.headers) {
     Object.assign(defaultHeaders, upstreamConfig.headers);
   }
@@ -216,19 +238,22 @@ async function loadConfigAndApplyOverrides(
   if (upstreamConfig.fallback) {
     const fbConfig = config.upstreams[upstreamConfig.fallback];
     if (fbConfig) {
-      const fbHeaders: Record<string, string> = { ...(config as any).headers ?? {} };
+      const fbHeaders: Record<string, string> = { ...(config.headers ?? {}) };
       if (fbConfig.headers) Object.assign(fbHeaders, fbConfig.headers);
       if (fbConfig.apiKey) fbHeaders.authorization = `Bearer ${fbConfig.apiKey}`;
+      const fbFormat: UpstreamFormat | undefined = fbConfig.format;
       options.fallbackUpstream = {
         baseUrl: fbConfig.baseUrl,
-        upstreamFormat: fbConfig.format as UpstreamFormat | undefined,
+        upstreamFormat: fbFormat,
         model: fbConfig.model ?? options.model,
         defaultHeaders: Object.keys(fbHeaders).length > 0 ? fbHeaders : undefined,
         apiVersion: fbConfig.apiVersion ?? options.apiVersion,
         reasoning_effort: fbConfig.reasoningEffort ?? options.reasoning_effort,
         thinking: fbConfig.thinking ?? options.thinking,
       };
-      console.log(`Fallback upstream: ${upstreamConfig.fallback}${fbConfig.model ? ` (${fbConfig.model})` : ''}`);
+      console.log(
+        `Fallback upstream: ${upstreamConfig.fallback}${fbConfig.model ? ` (${fbConfig.model})` : ''}`,
+      );
     } else {
       console.warn(`Warning: fallback upstream "${upstreamConfig.fallback}" not found in config`);
     }
@@ -250,8 +275,9 @@ async function main(): Promise<void> {
   if (args.config) {
     options = await loadConfigAndApplyOverrides(args.config, args);
   } else if (args.baseUrl) {
+    const upstreamFormat: UpstreamFormat | undefined = args.upstreamFormat;
     options = {
-      upstreamFormat: args.upstreamFormat as UpstreamFormat | undefined,
+      upstreamFormat,
       baseUrl: args.baseUrl,
       host: args.host,
       port: args.port,

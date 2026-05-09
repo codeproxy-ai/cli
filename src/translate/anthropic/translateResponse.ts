@@ -54,29 +54,29 @@ export function mapOutputItems(content: AnthropicContentBlock[]): ResponsesOutpu
 
   for (const block of content) {
     if (!block || typeof block !== 'object') continue;
-    const btype = (block as { type?: string }).type;
+    const btype: string = block.type;
     if (btype === 'text') {
-      textChunks.push(String((block as { text?: string }).text ?? ''));
+      textChunks.push(String(block.text ?? ''));
     } else if (btype === 'tool_use') {
-      const b = block as { id?: string; name?: string; input?: unknown };
-      const args = jsonStringifySafe(b.input ?? {});
-      const callId = b.id ?? makeId('call');
+      const args = jsonStringifySafe(block.input ?? {});
+      const callId = block.id ?? makeId('call');
       const item: ResponsesOutputFunctionCall = {
         id: callId,
         type: 'function_call',
         status: 'completed',
-        name: b.name ?? 'tool',
+        name: block.name ?? 'tool',
         arguments: args,
         call_id: callId,
       };
-      if (b.name && SHELL_TOOL_NAMES.has(b.name)) {
+      if (block.name && SHELL_TOOL_NAMES.has(block.name)) {
         item.type = 'local_shell_call';
-        const input = (b.input as Record<string, unknown> | undefined) ?? {};
-        item.action = { type: 'exec', command: (input.command as string[] | undefined) ?? [] };
+        const input_: Record<string, unknown> = block.input ?? {};
+        const command: string[] = input_.command ?? [];
+        item.action = { type: 'exec', command: command };
       }
       out.push(item);
     } else if (btype === 'thinking') {
-      const text = String((block as { thinking?: string }).thinking ?? '');
+      const text = String(block.thinking ?? '');
       const reasoning: ResponsesOutputReasoning = {
         id: makeId('rs'),
         type: 'reasoning',
