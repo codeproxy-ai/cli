@@ -1,24 +1,57 @@
 {
   "version": "1.0",
-  "currentUpstream": "anthropic",
+  "currentUpstream": "deepseek",
+  "headers": {
+    "x-custom-header": "value"
+  },
+  "reasoningEffort": "medium",
+  "timeoutMs": 120000,
   "upstreams": {
+    "deepseek": {
+      "format": "openai-chat",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-...",
+      "model": "deepseek-v4-pro",
+      "timeoutMs": 300000,
+      "dropImages": true,
+      "headers": {
+        "x-version": "1.0"
+      },
+      "reasoningEffort": "high",
+      "thinking": null,
+      "fallback": "deepseek-vision"
+    },
+    "deepseek-vision": {
+      "format": "openai-chat",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-...",
+      "model": "deepseek-v4-vision",
+      "headers": {}
+    },
     "anthropic": {
-      "baseUrl": "https://api.anthropic.com/v1/messages",
-      "apiKey": "",
+      "format": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKey": "sk-ant-...",
       "model": "claude-sonnet-4-5",
       "apiVersion": "2023-06-01",
+      "headers": {},
+      "thinking": {
+        "type": "enabled",
+        "budget_tokens": 16384
+      }
+    },
+    "openai": {
+      "format": "openai-chat",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "sk-...",
+      "model": "gpt-4o",
       "headers": {}
     },
     "zai": {
+      "format": "openai-chat",
       "baseUrl": "https://api.z.ai/api/coding/paas/v4/chat/completions",
       "apiKey": "",
       "model": "glm-4.6",
-      "headers": {}
-    },
-    "openai": {
-      "baseUrl": "https://api.openai.com/v1/chat/completions",
-      "apiKey": "",
-      "model": "gpt-4o-mini",
       "headers": {}
     }
   }

@@ -23,26 +23,70 @@ curl -N http://127.0.0.1:8787/v1/responses \
   -d '{"model":"deepseek-v4-pro","input":"Hello!","stream":true}'
 ```
 
+
 ### With config file
 
 ```bash
 npx @codeproxy/cli --config config.json
 ```
 
+See [config.example.json](./config.example.json) for a full example.
+
+#### Top-level fields
+
+| Field | Type | Description |
+|---|---|---|
+| `version` | `string` | Config format version (currently `"1.0"`) |
+| `currentUpstream` | `string` | Name of the upstream to use (must match a key in `upstreams`) |
+| `headers` | `object` | Default headers applied to **all** upstreams (merged with per-upstream headers; per-upstream wins) |
+| `reasoningEffort` | `string` | Default reasoning effort for all upstreams: `"low"`, `"medium"`, `"high"`, `"xhigh"` |
+| `thinking` | `object` `|` `null` | Default thinking config for all upstreams. Anthropic format: `{"type": "enabled", "budget_tokens": 16384}`. Set to `null` to disable |
+| `timeoutMs` | `number` | Default upstream request timeout in milliseconds |
+
+#### Per-upstream fields
+
+| Field | Type | Description |
+|---|---|---|
+| `format` | `"anthropic"` `|` `"openai-chat"` | Upstream API format. If omitted, inferred from `baseUrl` (path ending in `/messages` \u2192 `anthropic`, `/chat/completions` \u2192 `openai-chat`, otherwise falls back to `openai-chat`). The proper path suffix is appended automatically |
+| `baseUrl` | `string` | **Required.** Upstream endpoint URL |
+| `apiKey` | `string` | Upstream API key. Sent as `Authorization: Bearer <key>` (Anthropic: rewritten to `x-api-key`) |
+| `model` | `string` | Override the `model` field in all incoming requests |
+| `apiVersion` | `string` | Override `anthropic-version` header (Anthropic only) |
+| `headers` | `object` | Extra HTTP headers for this upstream. Merged on top of top-level `headers`, per-upstream wins |
+| `timeoutMs` | `number` | Request timeout for this upstream (overrides top-level `timeoutMs`) |
+| `dropImages` | `boolean` | When `true`, strip image/file parts from user messages (for text-only models). Use with `fallback` to auto-route image requests to a vision-capable upstream |
+| `fallback` | `string` | Name of another upstream to route to when `dropImages: true` and the request contains images |
+| `reasoningEffort` | `string` | Per-upstream reasoning effort override (`"low"`, `"medium"`, `"high"`, `"xhigh"`). Overrides top-level value |
+| `thinking` | `object` `|` `null` | Per-upstream thinking config. Overrides top-level value. Set to `null` to disable |
+
+#### Precedence
+
+```
+CLI flags > per-upstream fields > top-level fields > built-in defaults
+```
+
+#### Example: auto-fallback for text-only models
+
+When `deepseek` has `dropImages: true` and the user sends an image, the proxy
+automatically routes to `deepseek-vision` (which supports vision):
+
 ```json
 {
-  "version": "1.0",
   "currentUpstream": "deepseek",
   "upstreams": {
     "deepseek": {
       "baseUrl": "https://api.deepseek.com/v1",
-      "apiKey": "sk-...",
-      "model": "deepseek-v4-pro"
+      "model": "deepseek-v4-pro",
+      "dropImages": true,
+      "fallback": "deepseek-vision"
+    },
+    "deepseek-vision": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "model": "deepseek-v4-vision"
     }
   }
 }
 ```
-
 ## Install
 
 ```bash
