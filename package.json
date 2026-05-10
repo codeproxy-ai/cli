@@ -1,6 +1,6 @@
 {
   "name": "@codeproxy/cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Local proxy server that converts any Chat Completions / Anthropic Messages API into OpenAI Responses API so Codex and Claude Code can use any LLM.",
   "keywords": [
     "openai",
