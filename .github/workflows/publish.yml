@@ -21,11 +21,10 @@ jobs:
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
-          always-auth: true
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - run: pnpm build
+      - name: Write npmrc for publish
+        run: echo "//registry.npmjs.org/:_authToken=\${{ secrets.NPM_TOKEN }}" > ~/.npmrc
       - run: pnpm publish --provenance --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
