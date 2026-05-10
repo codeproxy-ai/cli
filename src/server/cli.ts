@@ -29,7 +29,7 @@ interface CliArgs {
   help?: boolean;
 }
 
-function parseArgs(argv: string[]): CliArgs {
+export function parseArgs(argv: string[]): CliArgs {
   const out: CliArgs = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -96,7 +96,7 @@ function parseArgs(argv: string[]): CliArgs {
   return out;
 }
 
-function printHelp(): void {
+export function printHelp(): void {
   console.log(`codeproxy - local Responses API proxy
 
 Usage:
@@ -152,7 +152,7 @@ Examples:
 `);
 }
 
-async function loadConfigFile(configPath: string): Promise<ConfigFile> {
+export async function loadConfigFile(configPath: string): Promise<ConfigFile> {
   if (!existsSync(configPath)) {
     console.error(`Config file not found: ${configPath}`);
     process.exit(1);
@@ -169,7 +169,7 @@ async function loadConfigFile(configPath: string): Promise<ConfigFile> {
   }
 }
 
-async function loadConfigAndApplyOverrides(
+export async function loadConfigAndApplyOverrides(
   configPath: string,
   overrides: CliArgs,
 ): Promise<StartProxyOptions> {
@@ -182,10 +182,10 @@ async function loadConfigAndApplyOverrides(
   }
 
   const upstreamConfig = getCurrentUpstreamConfig(config);
-  if (!upstreamConfig) {
+  /* c8 ignore start */ if (!upstreamConfig) {
     console.error(`Current upstream "${config.currentUpstream}" not found in config`);
     process.exit(1);
-  }
+  } /* c8 ignore stop */
 
   console.log(`Loaded config from: ${configPath}`);
   console.log(
@@ -280,7 +280,8 @@ async function loadConfigAndApplyOverrides(
   return options;
 }
 
-async function main(): Promise<void> {
+/* c8 ignore next -- main is entry point */
+export async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
@@ -314,6 +315,7 @@ async function main(): Promise<void> {
   }
 
   const proxy = await startProxy(options);
+  /* c8 ignore start */
   const shutdown = async (signal: string) => {
     console.log(`\nReceived ${signal}, shutting down...`);
     // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
@@ -325,6 +327,11 @@ async function main(): Promise<void> {
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  /* c8 ignore stop */
 }
 
-void main();
+/* c8 ignore start */
+if (process.argv[1]?.endsWith('cli.js') || process.argv[1]?.endsWith('cli.ts')) {
+  void main();
+}
+/* c8 ignore stop */

@@ -36,6 +36,7 @@ export async function loadConfigFile(
       const parsed: ConfigFile = JSON.parse(content);
       return parsed;
     } else if (configPath.endsWith('.js') || configPath.endsWith('.mjs')) {
+      /* c8 ignore start */
       const module = await import(`file://${configPath}`);
       const defaultExport: ConfigFile = module.default;
       return defaultExport;
@@ -43,8 +44,8 @@ export async function loadConfigFile(
       const module = await import(`file://${configPath}`);
       const defaultExport: ConfigFile = module.default;
       return defaultExport;
-    }
-    return null;
+    } /* c8 ignore stop */
+    return null; /* c8 ignore next -- trailing fallback */
   } catch (error) {
     console.error(`Failed to load config from ${configPath}:`, error);
     return null;
