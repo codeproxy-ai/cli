@@ -63,7 +63,7 @@
     "node": ">=18"
   },
   "bin": {
-    "codeproxy": "dist/server/cli.js"
+    "codeproxy": "dist/cli.js"
   },
   "dependencies": {
     "@codeproxy/core": "^0.1.0"
