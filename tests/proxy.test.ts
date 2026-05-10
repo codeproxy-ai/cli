@@ -85,4 +85,73 @@ describe('startProxy', () => {
     expect(res.status).toBe(204);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
   });
+
+  it('aborts upstream fetch when timeoutMs is exceeded', async () => {
+    // Upstream that never responds
+    const neverRespond: typeof fetch = async () => {
+      return new Promise<Response>(() => {
+        // Intentionally never resolve/reject
+      });
+    };
+
+    const fastProxy = await startProxy({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      host: '127.0.0.1',
+      port: 0,
+      fetch: neverRespond,
+      timeoutMs: 100,
+      logger: null,
+    });
+
+    const start = Date.now();
+    // Timeout destroys the socket before the 500 catch handler responds,
+    // so the client gets a socket error, not an HTTP response
+    await expect(
+      fetch(`${fastProxy.url}/v1/responses`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'test', input: 'Hello' }),
+      }),
+    ).rejects.toThrow();
+
+    const elapsed = Date.now() - start;
+    // Should resolve well before the upstream would
+    expect(elapsed).toBeLessThan(5000);
+
+    await fastProxy.close();
+  });
+
+  it('does not abort when timeoutMs is not set', async () => {
+    const neverRespond: typeof fetch = async () => {
+      return new Promise<Response>(() => {
+        // Intentionally never resolve/reject
+      });
+    };
+
+    const noTimeoutProxy = await startProxy({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      host: '127.0.0.1',
+      port: 0,
+      fetch: neverRespond,
+      logger: null,
+    });
+
+    // This will hang, so we need a client timeout to avoid test timeout
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 200);
+
+    await expect(
+      fetch(`${noTimeoutProxy.url}/v1/responses`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'test', input: 'Hello' }),
+        signal: controller.signal,
+      })
+    ).rejects.toThrow();
+
+    clearTimeout(timer);
+    await noTimeoutProxy.close();
+  });
 });

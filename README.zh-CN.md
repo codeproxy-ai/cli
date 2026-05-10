@@ -19,7 +19,7 @@ npx @codeproxy/cli --upstream-format openai-chat \
 ```bash
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
-  -H "authorization: Bearer $API_KEY" \
+  -H "authorization: Bearer \$API_KEY" \
   -d '{"model":"deepseek-v4-pro","input":"Hello!","stream":true}'
 ```
 
@@ -47,7 +47,7 @@ npx @codeproxy/cli --config config.json
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `format` | `"anthropic"` `|` `"openai-chat"` | 上游 API 格式。省略时从 `baseUrl` 推断（路径结尾是 `/messages` \u2192 `anthropic`，`/chat/completions` \u2192 `openai-chat`，否则回退到 `openai-chat`）。路径后缀会自动补全 |
+| `format` | `"anthropic"` `|` `"openai-chat"` | 上游 API 格式。省略时从 `baseUrl` 推断（路径结尾是 `/messages` → `anthropic`，`/chat/completions` → `openai-chat`，否则回退到 `openai-chat`）。路径后缀会自动补全 |
 | `baseUrl` | `string` | **必需。** 上游端点 URL |
 | `apiKey` | `string` | 上游 API 密钥。作为 `Authorization: Bearer <key>` 发送（Anthropic 会转为 `x-api-key`） |
 | `model` | `string` | 覆盖所有传入请求中的 `model` 字段 |
@@ -77,15 +77,89 @@ CLI 标志 > 每个上游的字段 > 顶层字段 > 内置默认值
       "baseUrl": "https://api.deepseek.com/v1",
       "model": "deepseek-v4-pro",
       "dropImages": true,
-      "fallback": "deepseek-vision"
+      "fallback": "kimi-vision"
     },
-    "deepseek-vision": {
-      "baseUrl": "https://api.deepseek.com/v1",
-      "model": "deepseek-v4-vision"
+    "kimi-vision": {
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k2.6",
+      "headers": { "x-llm-api-key": "sk-..." }
     }
   }
 }
 ```
+
+## Codex 配置
+
+Codex `0.128.0+` 要求自定义 Provider 必须使用 Responses API。`@codeproxy/cli` 为任何 Chat Completions 或 Anthropic Messages 上游填补了这一差距。
+
+### 快速设置
+
+1. 启动代理：
+
+```bash
+npx @codeproxy/cli --upstream-format openai-chat \
+  --base-url https://api.deepseek.com/v1 \
+  --apikey sk-your-key
+```
+
+2. 在 `~/.codex/config.toml` 中添加自定义 Provider：
+
+```toml
+[model_providers.deepseek]
+name = "DeepSeek"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[profiles.deepseek-pro]
+model = "deepseek-v4-pro"
+model_provider = "deepseek"
+```
+
+### 配置推理力度
+
+```toml
+[model_providers.deepseek]
+name = "DeepSeek"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[profiles.deepseek-pro]
+model = "deepseek-v4-pro"
+model_provider = "deepseek"
+model_reasoning_effort = "high"
+```
+
+`@codeproxy/cli` 会自动将 `reasoning.effort` 映射为上游原生的推理参数（如 OpenAI Chat 的 `reasoning_effort`、Anthropic 的 `thinking` 块）。
+
+### 多上游配置文件
+
+```json
+{
+  "currentUpstream": "deepseek-chat",
+  "upstreams": {
+    "deepseek-chat": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "model": "deepseek-v4-pro",
+      "dropImages": true,
+      "fallback": "kimi-vision"
+    },
+    "kimi-vision": {
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k2.6",
+      "headers": { "x-llm-api-key": "sk-..." }
+    },
+    "claude": {
+      "format": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKey": "sk-ant-...",
+      "model": "claude-sonnet-4-20250514"
+    }
+  }
+}
+```
+
+修改 `currentUpstream` 并重启代理即可切换上游 — 无需改动 Codex 配置。
+
 ## 安装
 
 ```bash
@@ -99,12 +173,12 @@ npm install -g @codeproxy/cli
 | `--base-url <url>` | — | 上游端点（除非使用 `--config`，否则必需） |
 | `--upstream-format <fmt>` | 自动推断 | `anthropic` 或 `openai-chat` |
 | `--config <file>` | — | JSON 配置文件 |
-| `--host <host>` | `127.0.0.1` | 绑定地址 |
+| `--host <host>` | `127.0.0.1` | 绑定主机 |
 | `-p, --port <port>` | `8787` | 绑定端口 |
 | `--api-version <ver>` | `2023-06-01` | 覆盖 Anthropic 版本头 |
 | `--apikey <key>` | — | 上游 API 密钥 |
-| `--model <name>` | — | 为所有请求覆盖模型 |
-| `--drop-images` | — | 移除图片部分（纯文本模型） |
+| `--model <name>` | — | 覆盖所有请求的 model 字段 |
+| `--drop-images` | — | 移除图片（纯文本模型） |
 
 ## 编程使用
 
@@ -118,6 +192,6 @@ const proxy = await startProxy({
 });
 ```
 
-## 协议
+## License
 
 MIT

@@ -19,7 +19,7 @@ Point your Responses-API client at `http://127.0.0.1:8787`:
 ```bash
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
-  -H "authorization: Bearer $API_KEY" \
+  -H "authorization: Bearer \$API_KEY" \
   -d '{"model":"deepseek-v4-pro","input":"Hello!","stream":true}'
 ```
 
@@ -47,7 +47,7 @@ See [config.example.json](./config.example.json) for a full example.
 
 | Field | Type | Description |
 |---|---|---|
-| `format` | `"anthropic"` `|` `"openai-chat"` | Upstream API format. If omitted, inferred from `baseUrl` (path ending in `/messages` \u2192 `anthropic`, `/chat/completions` \u2192 `openai-chat`, otherwise falls back to `openai-chat`). The proper path suffix is appended automatically |
+| `format` | `"anthropic"` `|` `"openai-chat"` | Upstream API format. If omitted, inferred from `baseUrl` (path ending in `/messages` → `anthropic`, `/chat/completions` → `openai-chat`, otherwise falls back to `openai-chat`). The proper path suffix is appended automatically |
 | `baseUrl` | `string` | **Required.** Upstream endpoint URL |
 | `apiKey` | `string` | Upstream API key. Sent as `Authorization: Bearer <key>` (Anthropic: rewritten to `x-api-key`) |
 | `model` | `string` | Override the `model` field in all incoming requests |
@@ -67,8 +67,7 @@ CLI flags > per-upstream fields > top-level fields > built-in defaults
 
 #### Example: auto-fallback for text-only models
 
-When `deepseek` has `dropImages: true` and the user sends an image, the proxy
-automatically routes to `deepseek-vision` (which supports vision):
+When `deepseek` has `dropImages: true` and the user sends an image, the proxy automatically routes to `kimi-vision` (uses Kimi K2.6):
 
 ```json
 {
@@ -78,15 +77,89 @@ automatically routes to `deepseek-vision` (which supports vision):
       "baseUrl": "https://api.deepseek.com/v1",
       "model": "deepseek-v4-pro",
       "dropImages": true,
-      "fallback": "deepseek-vision"
+      "fallback": "kimi-vision"
     },
-    "deepseek-vision": {
-      "baseUrl": "https://api.deepseek.com/v1",
-      "model": "deepseek-v4-vision"
+    "kimi-vision": {
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k2.6",
+      "headers": { "x-llm-api-key": "sk-..." }
     }
   }
 }
 ```
+
+## Codex Configuration
+
+Codex `0.128.0+` requires custom providers to speak the Responses API. `@codeproxy/cli` bridges this gap for any Chat Completions or Anthropic Messages upstream.
+
+### Quick setup
+
+1. Start the proxy:
+
+```bash
+npx @codeproxy/cli --upstream-format openai-chat \
+  --base-url https://api.deepseek.com/v1 \
+  --apikey sk-your-key
+```
+
+2. Add a custom provider in `~/.codex/config.toml`:
+
+```toml
+[model_providers.deepseek]
+name = "DeepSeek"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[profiles.deepseek-pro]
+model = "deepseek-v4-pro"
+model_provider = "deepseek"
+```
+
+### With reasoning effort
+
+```toml
+[model_providers.deepseek]
+name = "DeepSeek"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[profiles.deepseek-pro]
+model = "deepseek-v4-pro"
+model_provider = "deepseek"
+model_reasoning_effort = "high"
+```
+
+`@codeproxy/cli` automatically maps `reasoning.effort` to the upstream's native format (e.g., `reasoning_effort` for OpenAI Chat, `thinking` blocks for Anthropic).
+
+### Multiple upstreams via config file
+
+```json
+{
+  "currentUpstream": "deepseek-chat",
+  "upstreams": {
+    "deepseek-chat": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "model": "deepseek-v4-pro",
+      "dropImages": true,
+      "fallback": "kimi-vision"
+    },
+    "kimi-vision": {
+      "baseUrl": "https://api.moonshot.cn/v1",
+      "model": "kimi-k2.6",
+      "headers": { "x-llm-api-key": "sk-..." }
+    },
+    "claude": {
+      "format": "anthropic",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKey": "sk-ant-...",
+      "model": "claude-sonnet-4-20250514"
+    }
+  }
+}
+```
+
+Switch upstreams by changing `currentUpstream` and restarting the proxy — no Codex config changes needed.
+
 ## Install
 
 ```bash

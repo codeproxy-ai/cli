@@ -225,11 +225,13 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
     requestInfo.url = req.url ?? '/v1/responses';
     requestInfo.startTime = start;
 
+    const abortController = new AbortController();
     const timeoutMs = options.timeoutMs;
     let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
     if (timeoutMs && timeoutMs > 0) {
       timeoutTimer = setTimeout(() => {
         logger?.warn(`[timeout] request exceeded ${timeoutMs}ms, aborting`);
+        abortController.abort();
         res.destroy();
         req.destroy();
       }, timeoutMs);
@@ -246,6 +248,7 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         upstreamCapture,
         requestInfo,
         requestTracker,
+        signal: abortController.signal,
       });
     } catch (err) {
       logger?.error('[proxy-error]', err);
@@ -316,6 +319,7 @@ async function handleRequest(
     };
     requestInfo: { resultLog: string };
     requestTracker: { add: (method: string, url: string) => string; remove: (id: string) => void };
+    signal?: AbortSignal;
   },
 ): Promise<void> {
   if (opts.cors) {
@@ -354,6 +358,7 @@ async function handleRequest(
       method,
       headers,
       body: body ? new Uint8Array(body) : undefined,
+      signal: opts.signal,
     });
 
     // Consume response body so onCacheStats fires (for streaming responses)
