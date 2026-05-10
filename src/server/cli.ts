@@ -331,7 +331,7 @@ export async function main(): Promise<void> {
 }
 
 /* c8 ignore start */
-if (process.argv[1]?.endsWith('cli.js') || process.argv[1]?.endsWith('cli.ts')) {
+if (process.argv[1]?.endsWith('cli.js') || process.argv[1]?.endsWith('cli.ts') || process.argv[1]?.endsWith('codeproxy')) {
   void main();
 }
 /* c8 ignore stop */
