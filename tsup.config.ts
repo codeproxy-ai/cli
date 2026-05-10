@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: { index: 'src/index.ts', cli: 'src/server/cli.ts' },
   format: ['esm', 'cjs'],
-  onSuccess: 'node scripts/add-shebang.mjs',
+  banner: { js: '#!/usr/bin/env node' },
   dts: true,
   clean: true,
   target: 'es2020',
