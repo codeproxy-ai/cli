@@ -2,5 +2,5 @@
 . "$(dirname -- "$0")/_/husky.sh"
 
 pnpm typecheck
-pnpm lint
+pnpm lint:fix
 pnpm test -- --coverage
