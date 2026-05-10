@@ -75,12 +75,14 @@ When `deepseek` has `dropImages: true` and the user sends an image, the proxy au
   "upstreams": {
     "deepseek": {
       "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-...",
       "model": "deepseek-v4-pro",
       "dropImages": true,
       "fallback": "kimi-vision"
     },
     "kimi-vision": {
       "baseUrl": "https://api.moonshot.cn/v1",
+      "apiKey": "sk-...",
       "model": "kimi-k2.6",
       "headers": { "x-llm-api-key": "sk-..." }
     }
@@ -139,12 +141,14 @@ model_reasoning_effort = "high"
   "upstreams": {
     "deepseek-chat": {
       "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-...",
       "model": "deepseek-v4-pro",
       "dropImages": true,
       "fallback": "kimi-vision"
     },
     "kimi-vision": {
       "baseUrl": "https://api.moonshot.cn/v1",
+      "apiKey": "sk-...",
       "model": "kimi-k2.6",
       "headers": { "x-llm-api-key": "sk-..." }
     },
