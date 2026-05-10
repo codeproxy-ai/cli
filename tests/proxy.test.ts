@@ -72,6 +72,9 @@ describe('startProxy', () => {
       body: '{}',
     });
     expect(res.status).toBe(404);
+    // ==============================================================================
+    // Timeout Tests
+    // ==============================================================================
   });
 
   it('handles CORS preflight', async () => {
@@ -148,7 +151,7 @@ describe('startProxy', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ model: 'test', input: 'Hello' }),
         signal: controller.signal,
-      })
+      }),
     ).rejects.toThrow();
 
     clearTimeout(timer);
