@@ -38,7 +38,7 @@ See [config.example.json](./config.example.json) for a full example.
 | `currentUpstream` | `string` | Name of the upstream to use (must match a key in `upstreams`) |
 | `headers` | `object` | Default headers applied to **all** upstreams (merged with per-upstream headers; per-upstream wins) |
 | `reasoningEffort` | `string` | Default reasoning effort for all upstreams: `"low"`, `"medium"`, `"high"`, `"xhigh"` |
-| `thinking` | `object | null` | Default thinking config for all upstreams. Anthropic format: `{"type": "enabled", "budget_tokens": 16384}`. Set to `null` to disable |
+| `thinking` | object or null | Default thinking config for all upstreams. Anthropic format: `{"type": "enabled", "budget_tokens": 16384}`. Set to `null` to disable |
 | `timeoutMs` | `number` | Default upstream request timeout in milliseconds |
 
 #### Per-upstream fields
@@ -53,7 +53,7 @@ See [config.example.json](./config.example.json) for a full example.
 | `dropImages` | `boolean` | When `true`, strip image/file parts from user messages (for text-only models). Use with `fallback` to auto-route image requests to a vision-capable upstream |
 | `fallback` | `string` | Name of another upstream to route to when `dropImages: true` and the request contains images |
 | `reasoningEffort` | `string` | Per-upstream reasoning effort override (`"low"`, `"medium"`, `"high"`, `"xhigh"`). Overrides top-level value |
-| `thinking` | `object | null` | Per-upstream thinking config. Overrides top-level value. Set to `null` to disable |
+| `thinking` | object or null | Per-upstream thinking config. Overrides top-level value. Set to `null` to disable |
 
 #### Precedence
 
