@@ -369,6 +369,9 @@ async function handleRequest(
     // Consume response body so onCacheStats fires (for streaming responses)
     const responseBodyText = response.body ? await response.clone().text() : '';
 
+    // Save last message for debugging
+    saveLastMessage(tryParseJson(requestBodyText), tryParseJson(responseBodyText));
+
     // Remove from active requests and write final result
     opts.requestTracker.remove(requestId);
     /* c8 ignore start */
@@ -570,4 +573,18 @@ export function redactAuth(headers: Record<string, string> | undefined): void {
       headers[key] = '[REDACTED]';
     }
   }
+}
+
+/** Save the last message to logs/last-message.json for debugging. */
+export function saveLastMessage(requestBody: unknown, responseBody: unknown): string {
+  const dir = resolve(process.cwd(), 'logs');
+  mkdirSync(dir, { recursive: true });
+  const filePath = join(dir, 'last-message.json');
+  const payload = {
+    timestamp: new Date().toISOString(),
+    request: requestBody,
+    response: responseBody,
+  };
+  writeFileSync(filePath, JSON.stringify(payload, null, 2));
+  return filePath;
 }
