@@ -38,7 +38,7 @@ npx @codeproxy/cli --config ./config.json
 | `currentUpstream` | `string` | 当前使用的上游名称（必须是 `upstreams` 中的某个 key） |
 | `headers` | `object` | 应用到**所有**上游的默认请求头（与各上游的 headers 合并，上游级别优先） |
 | `reasoningEffort` | `string` | 所有上游的默认推理力度：`"low"`、`"medium"`、`"high"`、`"xhigh"` |
-| `thinking` | `object` `|` `null` | 所有上游的默认 thinking 配置。Anthropic 格式：`{"type": "enabled", "budget_tokens": 16384}`。设为 `null` 禁用 |
+| `thinking` | `object | null` | 所有上游的默认 thinking 配置。Anthropic 格式：`{"type": "enabled", "budget_tokens": 16384}`。设为 `null` 禁用 |
 | `timeoutMs` | `number` | 默认上游请求超时时间（毫秒） |
 
 #### 每个上游的字段
@@ -53,7 +53,7 @@ npx @codeproxy/cli --config ./config.json
 | `dropImages` | `boolean` | 设为 `true` 时，从用户消息中移除图片/文件部分（用于纯文本模型）。配合 `fallback` 使用，含图片的请求会自动路由到支持视觉的上游 |
 | `fallback` | `string` | 另一个上游的名称。当当前上游设了 `dropImages: true` 且请求包含图片时，自动切换到该上游 |
 | `reasoningEffort` | `string` | 该上游的推理力度覆盖（`"low"`、`"medium"`、`"high"`、`"xhigh"`）。覆盖顶层值 |
-| `thinking` | `object` `|` `null` | 该上游的 thinking 配置。覆盖顶层值。设为 `null` 禁用 |
+| `thinking` | `object | null` | 该上游的 thinking 配置。覆盖顶层值。设为 `null` 禁用 |
 
 #### 优先级
 
