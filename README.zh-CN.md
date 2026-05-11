@@ -19,8 +19,7 @@ npx @codeproxy/cli --base-url https://api.deepseek.com/v1 \
 ```bash
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
-  -H "authorization: Bearer \$API_KEY" \
-  -d '{"model":"deepseek-v4-flash","input":"Hello!","stream":true}'
+  -d '{"input":"Hello!","stream":true}'
 ```
 
 ### 使用配置文件
@@ -46,13 +45,11 @@ npx @codeproxy/cli --config ./config.json
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `format` | `"anthropic"` `|` `"openai-chat"` | 上游 API 格式。省略时从 `baseUrl` 推断（路径结尾是 `/messages` → `anthropic`，`/chat/completions` → `openai-chat`，否则回退到 `openai-chat`）。路径后缀会自动补全 |
 | `baseUrl` | `string` | **必需。** 上游端点 URL |
 | `apiKey` | `string` | 上游 API 密钥。作为 `Authorization: Bearer <key>` 发送（Anthropic 会转为 `x-api-key`） |
 | `model` | `string` | 覆盖所有传入请求中的 `model` 字段 |
 | `apiVersion` | `string` | 覆盖 `anthropic-version` 请求头（仅 Anthropic） |
 | `headers` | `object` | 该上游的额外 HTTP 请求头。合并到顶层 `headers` 之上，上游级别优先 |
-| `timeoutMs` | `number` | 该上游的请求超时（覆盖顶层 `timeoutMs`） |
 | `dropImages` | `boolean` | 设为 `true` 时，从用户消息中移除图片/文件部分（用于纯文本模型）。配合 `fallback` 使用，含图片的请求会自动路由到支持视觉的上游 |
 | `fallback` | `string` | 另一个上游的名称。当当前上游设了 `dropImages: true` 且请求包含图片时，自动切换到该上游 |
 | `reasoningEffort` | `string` | 该上游的推理力度覆盖（`"low"`、`"medium"`、`"high"`、`"xhigh"`）。覆盖顶层值 |
@@ -115,22 +112,6 @@ wire_api = "responses"
 model = "deepseek-v4-flash"
 model_provider = "deepseek"
 ```
-
-### 配置推理力度
-
-```toml
-[model_providers.deepseek]
-name = "DeepSeek"
-base_url = "http://127.0.0.1:8787/v1"
-wire_api = "responses"
-
-[profiles.deepseek-pro]
-model = "deepseek-v4-flash"
-model_provider = "deepseek"
-model_reasoning_effort = "high"
-```
-
-`@codeproxy/cli` 会自动将 `reasoning.effort` 映射为上游原生的推理参数（如 OpenAI Chat 的 `reasoning_effort`、Anthropic 的 `thinking` 块）。
 
 ### 多上游配置文件
 

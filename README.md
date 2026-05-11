@@ -19,8 +19,7 @@ Point your Responses-API client at `http://127.0.0.1:8787`:
 ```bash
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
-  -H "authorization: Bearer \$API_KEY" \
-  -d '{"model":"deepseek-v4-flash","input":"Hello!","stream":true}'
+  -d '{"input":"Hello!","stream":true}'
 ```
 
 ### With config file
@@ -51,7 +50,6 @@ See [config.example.json](./config.example.json) for a full example.
 | `model` | `string` | Override the `model` field in all incoming requests |
 | `apiVersion` | `string` | Override `anthropic-version` header (Anthropic only) |
 | `headers` | `object` | Extra HTTP headers for this upstream. Merged on top of top-level `headers`, per-upstream wins |
-
 | `dropImages` | `boolean` | When `true`, strip image/file parts from user messages (for text-only models). Use with `fallback` to auto-route image requests to a vision-capable upstream |
 | `fallback` | `string` | Name of another upstream to route to when `dropImages: true` and the request contains images |
 | `reasoningEffort` | `string` | Per-upstream reasoning effort override (`"low"`, `"medium"`, `"high"`, `"xhigh"`). Overrides top-level value |
@@ -114,22 +112,6 @@ wire_api = "responses"
 model = "deepseek-v4-flash"
 model_provider = "deepseek"
 ```
-
-### With reasoning effort
-
-```toml
-[model_providers.deepseek]
-name = "DeepSeek"
-base_url = "http://127.0.0.1:8787/v1"
-wire_api = "responses"
-
-[profiles.deepseek-pro]
-model = "deepseek-v4-flash"
-model_provider = "deepseek"
-model_reasoning_effort = "high"
-```
-
-`@codeproxy/cli` automatically maps `reasoning.effort` to the upstream's native format (e.g., `reasoning_effort` for OpenAI Chat, `thinking` blocks for Anthropic).
 
 ### Multiple upstreams via config file
 
