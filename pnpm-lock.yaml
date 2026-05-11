@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@codeproxy/core':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.4
+        version: 0.1.4
     devDependencies:
       '@ai0x0/utils':
         specifier: ^0.0.31
@@ -97,8 +97,8 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@codeproxy/core@0.1.0':
-    resolution: {integrity: sha512-wOQUxRseVriS1gJPZ9O/JD+8eMfMh98azs6ECpUKoo4MuIAG5Lexvv8/7/aBkjVY2Za8CNjSM92c4/zHH/a9Iw==}
+  '@codeproxy/core@0.1.4':
+    resolution: {integrity: sha512-l5OJrd4BL0B12bX42Y85OTuOS/EbfbRw7dX6xKsVWzdZF4g1lOVZGtMTr9memEBR6R00LfTyg49xFW3MBUldwg==}
     engines: {node: '>=18'}
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -1695,7 +1695,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@codeproxy/core@0.1.0': {}
+  '@codeproxy/core@0.1.4': {}
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true
