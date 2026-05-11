@@ -67,7 +67,7 @@
     "codeproxy": "dist/cli.js"
   },
   "dependencies": {
-    "@codeproxy/core": "^0.1.4"
+    "@codeproxy/core": "^0.1.6"
   },
   "publishConfig": {
     "access": "public"
