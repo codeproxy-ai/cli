@@ -1,5 +1,6 @@
 {
   "version": "1.0",
+  "port": 8787,
   "currentUpstream": "deepseek",
   "headers": {
     "x-custom-header": "value"
@@ -8,28 +9,18 @@
   "timeoutMs": 120000,
   "upstreams": {
     "deepseek": {
-      "format": "openai-chat",
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
-      "model": "deepseek-v4-pro",
-      "timeoutMs": 300000,
+      "model": "deepseek-v4-flash",
       "dropImages": true,
       "headers": {
         "x-version": "1.0"
       },
       "reasoningEffort": "high",
       "thinking": null,
-      "fallback": "deepseek-vision"
-    },
-    "deepseek-vision": {
-      "format": "openai-chat",
-      "baseUrl": "https://api.deepseek.com/v1",
-      "apiKey": "sk-...",
-      "model": "deepseek-v4-vision",
-      "headers": {}
+      "fallback": "kimi"
     },
     "anthropic": {
-      "format": "anthropic",
       "baseUrl": "https://api.anthropic.com/v1",
       "apiKey": "sk-ant-...",
       "model": "claude-sonnet-4-5",
@@ -41,18 +32,24 @@
       }
     },
     "openai": {
-      "format": "openai-chat",
       "baseUrl": "https://api.openai.com/v1",
       "apiKey": "sk-...",
       "model": "gpt-4o",
       "headers": {}
     },
     "zai": {
-      "format": "openai-chat",
       "baseUrl": "https://api.z.ai/api/coding/paas/v4/chat/completions",
       "apiKey": "",
       "model": "glm-4.6",
       "headers": {}
+    },
+    "kimi": {
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "apiKey": "sk-kimi-...",
+      "model": "kimi-for-coding",
+      "headers": {
+        "user-agent": "KimiCLI/1.39.0"
+      }
     }
   }
 }

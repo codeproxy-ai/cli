@@ -9,8 +9,8 @@
 ## 快速开始
 
 ```bash
-npx @codeproxy/cli --upstream-format openai-chat \
-  --base-url https://api.deepseek.com/v1 \
+npx @codeproxy/cli --base-url https://api.deepseek.com/v1 \
+  --model deepseek-v4-flash \
   --apikey sk-your-key
 ```
 
@@ -20,14 +20,13 @@ npx @codeproxy/cli --upstream-format openai-chat \
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
   -H "authorization: Bearer \$API_KEY" \
-  -d '{"model":"deepseek-v4-pro","input":"Hello!","stream":true}'
+  -d '{"model":"deepseek-v4-flash","input":"Hello!","stream":true}'
 ```
-
 
 ### 使用配置文件
 
 ```bash
-npx @codeproxy/cli --config config.json
+npx @codeproxy/cli --config ./config.json
 ```
 
 完整的配置示例见 [config.example.json](./config.example.json)。
@@ -67,7 +66,7 @@ CLI 标志 > 每个上游的字段 > 顶层字段 > 内置默认值
 
 #### 示例：纯文本模型的自动回退
 
-当 `deepseek` 设了 `dropImages: true` 且用户发送图片时，代理自动路由到 `deepseek-vision`（支持视觉）：
+当 `deepseek` 设了 `dropImages: true` 且用户发送图片时，代理自动路由到 `kimi`：
 
 ```json
 {
@@ -76,15 +75,15 @@ CLI 标志 > 每个上游的字段 > 顶层字段 > 内置默认值
     "deepseek": {
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
-      "model": "deepseek-v4-pro",
+      "model": "deepseek-v4-flash",
       "dropImages": true,
-      "fallback": "kimi-vision"
+      "fallback": "kimi"
     },
-    "kimi-vision": {
-      "baseUrl": "https://api.moonshot.cn/v1",
-      "apiKey": "sk-...",
-      "model": "kimi-k2.6",
-      "headers": { "x-llm-api-key": "sk-..." }
+    "kimi": {
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "apiKey": "sk-kimi-...",
+      "model": "kimi-for-coding",
+      "headers": { "user-agent": "KimiCLI/1.39.0" }
     }
   }
 }
@@ -99,8 +98,8 @@ Codex `0.128.0+` 要求自定义 Provider 必须使用 Responses API。`@codepro
 1. 启动代理：
 
 ```bash
-npx @codeproxy/cli --upstream-format openai-chat \
-  --base-url https://api.deepseek.com/v1 \
+npx @codeproxy/cli --base-url https://api.deepseek.com/v1 \
+  --model deepseek-v4-flash \
   --apikey sk-your-key
 ```
 
@@ -113,7 +112,7 @@ base_url = "http://127.0.0.1:8787/v1"
 wire_api = "responses"
 
 [profiles.deepseek-pro]
-model = "deepseek-v4-pro"
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 ```
 
@@ -126,7 +125,7 @@ base_url = "http://127.0.0.1:8787/v1"
 wire_api = "responses"
 
 [profiles.deepseek-pro]
-model = "deepseek-v4-pro"
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 model_reasoning_effort = "high"
 ```
@@ -142,18 +141,17 @@ model_reasoning_effort = "high"
     "deepseek-chat": {
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
-      "model": "deepseek-v4-pro",
+      "model": "deepseek-v4-flash",
       "dropImages": true,
-      "fallback": "kimi-vision"
+      "fallback": "kimi"
     },
-    "kimi-vision": {
-      "baseUrl": "https://api.moonshot.cn/v1",
-      "apiKey": "sk-...",
-      "model": "kimi-k2.6",
-      "headers": { "x-llm-api-key": "sk-..." }
+    "kimi": {
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "apiKey": "sk-kimi-...",
+      "model": "kimi-for-coding",
+      "headers": { "user-agent": "KimiCLI/1.39.0" }
     },
     "claude": {
-      "format": "anthropic",
       "baseUrl": "https://api.anthropic.com/v1",
       "apiKey": "sk-ant-...",
       "model": "claude-sonnet-4-20250514"

@@ -9,8 +9,8 @@ Built on [@codeproxy/core](https://github.com/codeproxy-ai/core).
 ## Quick Start
 
 ```bash
-npx @codeproxy/cli --upstream-format openai-chat \
-  --base-url https://api.deepseek.com/v1 \
+npx @codeproxy/cli --base-url https://api.deepseek.com/v1 \
+  --model deepseek-v4-flash \
   --apikey sk-your-key
 ```
 
@@ -20,14 +20,13 @@ Point your Responses-API client at `http://127.0.0.1:8787`:
 curl -N http://127.0.0.1:8787/v1/responses \
   -H 'content-type: application/json' \
   -H "authorization: Bearer \$API_KEY" \
-  -d '{"model":"deepseek-v4-pro","input":"Hello!","stream":true}'
+  -d '{"model":"deepseek-v4-flash","input":"Hello!","stream":true}'
 ```
-
 
 ### With config file
 
 ```bash
-npx @codeproxy/cli --config config.json
+npx @codeproxy/cli --config ./config.json
 ```
 
 See [config.example.json](./config.example.json) for a full example.
@@ -47,13 +46,12 @@ See [config.example.json](./config.example.json) for a full example.
 
 | Field | Type | Description |
 |---|---|---|
-| `format` | `"anthropic"` `|` `"openai-chat"` | Upstream API format. If omitted, inferred from `baseUrl` (path ending in `/messages` → `anthropic`, `/chat/completions` → `openai-chat`, otherwise falls back to `openai-chat`). The proper path suffix is appended automatically |
 | `baseUrl` | `string` | **Required.** Upstream endpoint URL |
 | `apiKey` | `string` | Upstream API key. Sent as `Authorization: Bearer <key>` (Anthropic: rewritten to `x-api-key`) |
 | `model` | `string` | Override the `model` field in all incoming requests |
 | `apiVersion` | `string` | Override `anthropic-version` header (Anthropic only) |
 | `headers` | `object` | Extra HTTP headers for this upstream. Merged on top of top-level `headers`, per-upstream wins |
-| `timeoutMs` | `number` | Request timeout for this upstream (overrides top-level `timeoutMs`) |
+
 | `dropImages` | `boolean` | When `true`, strip image/file parts from user messages (for text-only models). Use with `fallback` to auto-route image requests to a vision-capable upstream |
 | `fallback` | `string` | Name of another upstream to route to when `dropImages: true` and the request contains images |
 | `reasoningEffort` | `string` | Per-upstream reasoning effort override (`"low"`, `"medium"`, `"high"`, `"xhigh"`). Overrides top-level value |
@@ -67,7 +65,7 @@ CLI flags > per-upstream fields > top-level fields > built-in defaults
 
 #### Example: auto-fallback for text-only models
 
-When `deepseek` has `dropImages: true` and the user sends an image, the proxy automatically routes to `kimi-vision` (uses Kimi K2.6):
+When `deepseek` has `dropImages: true` and the user sends an image, the proxy automatically routes to `kimi`:
 
 ```json
 {
@@ -76,15 +74,15 @@ When `deepseek` has `dropImages: true` and the user sends an image, the proxy au
     "deepseek": {
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
-      "model": "deepseek-v4-pro",
+      "model": "deepseek-v4-flash",
       "dropImages": true,
-      "fallback": "kimi-vision"
+      "fallback": "kimi"
     },
-    "kimi-vision": {
-      "baseUrl": "https://api.moonshot.cn/v1",
-      "apiKey": "sk-...",
-      "model": "kimi-k2.6",
-      "headers": { "x-llm-api-key": "sk-..." }
+    "kimi": {
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "apiKey": "sk-kimi-...",
+      "model": "kimi-for-coding",
+      "headers": { "user-agent": "KimiCLI/1.39.0" }
     }
   }
 }
@@ -99,8 +97,8 @@ Codex `0.128.0+` requires custom providers to speak the Responses API. `@codepro
 1. Start the proxy:
 
 ```bash
-npx @codeproxy/cli --upstream-format openai-chat \
-  --base-url https://api.deepseek.com/v1 \
+npx @codeproxy/cli --base-url https://api.deepseek.com/v1 \
+  --model deepseek-v4-flash \
   --apikey sk-your-key
 ```
 
@@ -113,7 +111,7 @@ base_url = "http://127.0.0.1:8787/v1"
 wire_api = "responses"
 
 [profiles.deepseek-pro]
-model = "deepseek-v4-pro"
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 ```
 
@@ -126,7 +124,7 @@ base_url = "http://127.0.0.1:8787/v1"
 wire_api = "responses"
 
 [profiles.deepseek-pro]
-model = "deepseek-v4-pro"
+model = "deepseek-v4-flash"
 model_provider = "deepseek"
 model_reasoning_effort = "high"
 ```
@@ -142,18 +140,17 @@ model_reasoning_effort = "high"
     "deepseek-chat": {
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
-      "model": "deepseek-v4-pro",
+      "model": "deepseek-v4-flash",
       "dropImages": true,
-      "fallback": "kimi-vision"
+      "fallback": "kimi"
     },
-    "kimi-vision": {
-      "baseUrl": "https://api.moonshot.cn/v1",
-      "apiKey": "sk-...",
-      "model": "kimi-k2.6",
-      "headers": { "x-llm-api-key": "sk-..." }
+    "kimi": {
+      "baseUrl": "https://api.kimi.com/coding/v1",
+      "apiKey": "sk-kimi-...",
+      "model": "kimi-for-coding",
+      "headers": { "user-agent": "KimiCLI/1.39.0" }
     },
     "claude": {
-      "format": "anthropic",
       "baseUrl": "https://api.anthropic.com/v1",
       "apiKey": "sk-ant-...",
       "model": "claude-sonnet-4-20250514"
