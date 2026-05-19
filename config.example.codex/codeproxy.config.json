@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "currentUpstream": "deepseek",
+  "upstreams": {
+		"deepseek": {
+			"baseUrl": "https://api.deepseek.com/v1",
+			"apiKey": "sk-...",
+			"dropImages": true
+		}
+	}
+}
