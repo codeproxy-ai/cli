@@ -19,6 +19,8 @@ export interface UpstreamConfig {
   apiKey?: string;
   /** Default model to use (optional, can be overridden by requests). */
   model?: string;
+  /** Selective incoming model rewrites. Unmapped model names pass through unchanged. */
+  modelAliases?: Record<string, string>;
   /** Additional default headers. */
   headers?: Record<string, string>;
   /** Timeout in milliseconds for upstream requests. (e.g. 300000 for 5min). */

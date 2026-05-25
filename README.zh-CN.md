@@ -48,6 +48,7 @@ npx @codeproxy/cli --config ./config.json
 | `baseUrl` | `string` | **必需。** 上游端点 URL |
 | `apiKey` | `string` | 上游 API 密钥。作为 `Authorization: Bearer <key>` 发送（Anthropic 会转为 `x-api-key`） |
 | `model` | `string` | 覆盖所有传入请求中的 `model` 字段 |
+| `modelAliases` | `object` | 只改写命中的传入模型名。未命中的模型保持不变 |
 | `apiVersion` | `string` | 覆盖 `anthropic-version` 请求头（仅 Anthropic） |
 | `headers` | `object` | 该上游的额外 HTTP 请求头。合并到顶层 `headers` 之上，上游级别优先 |
 | `dropImages` | `boolean` | 设为 `true` 时，从用户消息中移除图片/文件部分（用于纯文本模型）。配合 `fallback` 使用，含图片的请求会自动路由到支持视觉的上游 |
@@ -73,6 +74,10 @@ CLI 标志 > 每个上游的字段 > 顶层字段 > 内置默认值
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
       "model": "deepseek-v4-flash",
+      "modelAliases": {
+        "gpt-5.5": "deepseek-v4-flash",
+        "gpt-4o": "deepseek-v4-flash"
+      },
       "dropImages": true,
       "fallback": "kimi"
     },

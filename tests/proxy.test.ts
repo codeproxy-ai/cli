@@ -68,6 +68,54 @@ describe('startProxy', () => {
     expect(upstreamBody.messages[0].content[0].text).toBe('Hello');
   });
 
+  it('rewrites mapped model aliases before forwarding', async () => {
+    const aliasedUpstream = mockUpstream();
+    const aliasedProxy = await startProxy({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      host: '127.0.0.1',
+      port: 0,
+      fetch: aliasedUpstream.fetch,
+      modelAliases: { 'gpt-5.5': 'deepseek-v4-flash' },
+      logger: null,
+    });
+
+    const res = await fetch(`${aliasedProxy.url}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'gpt-5.5', input: 'Hello' }),
+    });
+
+    expect(res.status).toBe(200);
+    const upstreamBody = JSON.parse(aliasedUpstream.lastBody());
+    expect(upstreamBody.model).toBe('deepseek-v4-flash');
+    await aliasedProxy.close();
+  });
+
+  it('leaves unmapped models unchanged when model aliases are configured', async () => {
+    const aliasedUpstream = mockUpstream();
+    const aliasedProxy = await startProxy({
+      upstreamFormat: 'anthropic',
+      baseUrl: 'https://api.anthropic.com/v1/messages',
+      host: '127.0.0.1',
+      port: 0,
+      fetch: aliasedUpstream.fetch,
+      modelAliases: { 'gpt-5.5': 'deepseek-v4-flash' },
+      logger: null,
+    });
+
+    const res = await fetch(`${aliasedProxy.url}/v1/responses`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'deepseek-v4-pro', input: 'Hello' }),
+    });
+
+    expect(res.status).toBe(200);
+    const upstreamBody = JSON.parse(aliasedUpstream.lastBody());
+    expect(upstreamBody.model).toBe('deepseek-v4-pro');
+    await aliasedProxy.close();
+  });
+
   it('returns 404 for unknown paths', async () => {
     const res = await fetch(`${proxy.url}/v1/chat/completions`, {
       method: 'POST',

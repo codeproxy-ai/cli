@@ -161,6 +161,17 @@ export function validateUpstreamConfig(upstream: unknown): {
     return { valid: false, error: 'model must be a string if provided' };
   }
 
+  if (cfg.modelAliases !== undefined) {
+    if (typeof cfg.modelAliases !== 'object' || cfg.modelAliases === null) {
+      return { valid: false, error: 'modelAliases must be an object if provided' };
+    }
+    for (const [from, to] of Object.entries(cfg.modelAliases)) {
+      if (typeof to !== 'string') {
+        return { valid: false, error: `modelAliases["${from}"] must be a string` };
+      }
+    }
+  }
+
   if (cfg.dropImages !== undefined && typeof cfg.dropImages !== 'boolean') {
     return { valid: false, error: 'dropImages must be a boolean if provided' };
   }

@@ -12,6 +12,10 @@
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
       "model": "deepseek-v4-flash",
+      "modelAliases": {
+        "gpt-5.5": "deepseek-v4-flash",
+        "gpt-4o": "deepseek-v4-flash"
+      },
       "dropImages": true,
       "headers": {
         "x-version": "1.0"

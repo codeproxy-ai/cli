@@ -228,4 +228,32 @@ describe('loadConfigAndApplyOverrides', () => {
     expect(opts.reasoning_effort).toBe('high');
     expect(opts.thinking).toEqual({ budget_tokens: 2000 });
   });
+
+  it('loads modelAliases from upstream config', async () => {
+    mkdirSync(tmpDir, { recursive: true });
+    const configPath = join(tmpDir, 'config.json');
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        version: '1.0',
+        currentUpstream: 'deepseek',
+        upstreams: {
+          deepseek: {
+            baseUrl: 'https://api.deepseek.com/v1',
+            modelAliases: {
+              'gpt-5.5': 'deepseek-v4-flash',
+              'gpt-4o': 'deepseek-v4-flash',
+            },
+          },
+        },
+      }),
+    );
+
+    const { loadConfigAndApplyOverrides } = await import('../src/server/cli.js');
+    const opts = await loadConfigAndApplyOverrides(configPath, {});
+    expect(opts.modelAliases).toEqual({
+      'gpt-5.5': 'deepseek-v4-flash',
+      'gpt-4o': 'deepseek-v4-flash',
+    });
+  });
 });

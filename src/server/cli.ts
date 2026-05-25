@@ -215,6 +215,7 @@ export async function loadConfigAndApplyOverrides(
     baseUrl: overrides.baseUrl || upstreamConfig.baseUrl,
     apiVersion: overrides.apiVersion || upstreamConfig.apiVersion,
     model: overrides.model || upstreamConfig.model,
+    modelAliases: upstreamConfig.modelAliases,
     host: overrides.host || upstreamConfig.host,
     port:
       overrides.port !== undefined

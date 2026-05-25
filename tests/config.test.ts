@@ -119,6 +119,23 @@ describe('validateUpstreamConfig', () => {
     expect(validateUpstreamConfig({ baseUrl: 'url', model: 'valid' }).valid).toBe(true);
   });
 
+  it('validates modelAliases type', () => {
+    expect(validateUpstreamConfig({ baseUrl: 'url', modelAliases: 'bad' })).toEqual({
+      valid: false,
+      error: 'modelAliases must be an object if provided',
+    });
+    expect(validateUpstreamConfig({ baseUrl: 'url', modelAliases: { 'gpt-5.5': 123 } })).toEqual({
+      valid: false,
+      error: 'modelAliases["gpt-5.5"] must be a string',
+    });
+    expect(
+      validateUpstreamConfig({
+        baseUrl: 'url',
+        modelAliases: { 'gpt-5.5': 'deepseek-v4-flash' },
+      }).valid,
+    ).toBe(true);
+  });
+
   it('validates dropImages type', () => {
     expect(validateUpstreamConfig({ baseUrl: 'url', dropImages: 'yes' }).valid).toBe(false);
     expect(validateUpstreamConfig({ baseUrl: 'url', dropImages: true }).valid).toBe(true);

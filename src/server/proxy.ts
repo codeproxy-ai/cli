@@ -12,6 +12,7 @@ import { Readable } from 'node:stream';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { handleCompactRequest } from './compact.js';
+import { applyModelAliasesToBody } from './model-aliases.js';
 import {
   corsHeaders,
   flattenIncomingHeaders,
@@ -63,6 +64,8 @@ export interface StartProxyOptions extends Omit<CreateResponsesFetchOptions, 'pa
   cors?: boolean;
   /** Optional logger. Defaults to `console`. Pass `null` to silence. */
   logger?: Pick<Console, 'log' | 'warn' | 'error'> | null;
+  /** Selectively rewrite incoming model names before forwarding to the upstream. */
+  modelAliases?: Record<string, string>;
   /** Optional callback to receive cache statistics after each request completes. */
   onCacheStats?: (stats: {
     cachedTokens: number;
@@ -266,6 +269,7 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         upstreamCapture,
         requestInfo,
         requestTracker,
+        modelAliases: options.modelAliases,
         signal: abortController.signal,
       });
     } catch (err) {
@@ -340,6 +344,7 @@ async function handleRequest(
     };
     requestInfo: { resultLog: string };
     requestTracker: { add: (method: string, url: string) => string; remove: (id: string) => void };
+    modelAliases?: Record<string, string>;
     signal?: AbortSignal;
   },
 ): Promise<void> {
@@ -399,10 +404,11 @@ async function handleRequest(
       return;
     }
 
+    const upstreamBody = applyModelAliasesToBody(body, opts.modelAliases);
     const response = await opts.apiFetch(`http://local${urlPath}`, {
       method,
       headers,
-      body: body ? new Uint8Array(body) : undefined,
+      body: upstreamBody ? new Uint8Array(upstreamBody) : undefined,
       signal: opts.signal,
     });
 

@@ -48,6 +48,7 @@ See [config.example.json](./config.example.json) for a full example.
 | `baseUrl` | `string` | **Required.** Upstream endpoint URL |
 | `apiKey` | `string` | Upstream API key. Sent as `Authorization: Bearer <key>` (Anthropic: rewritten to `x-api-key`) |
 | `model` | `string` | Override the `model` field in all incoming requests |
+| `modelAliases` | `object` | Rewrite only matching incoming model names. Unmapped models pass through unchanged |
 | `apiVersion` | `string` | Override `anthropic-version` header (Anthropic only) |
 | `headers` | `object` | Extra HTTP headers for this upstream. Merged on top of top-level `headers`, per-upstream wins |
 | `dropImages` | `boolean` | When `true`, strip image/file parts from user messages (for text-only models). Use with `fallback` to auto-route image requests to a vision-capable upstream |
@@ -73,6 +74,10 @@ When `deepseek` has `dropImages: true` and the user sends an image, the proxy au
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKey": "sk-...",
       "model": "deepseek-v4-flash",
+      "modelAliases": {
+        "gpt-5.5": "deepseek-v4-flash",
+        "gpt-4o": "deepseek-v4-flash"
+      },
       "dropImages": true,
       "fallback": "kimi"
     },
