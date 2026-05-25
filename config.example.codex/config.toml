@@ -1,0 +1,26 @@
+model_catalog_json = "~/.codex/custom-models.json"
+model = "deepseek-v4-flash"
+model_provider = "deepseek"
+model_reasoning_effort = "high"
+max_tokens = 128_000
+model_context_window = 250_000
+model_auto_compact_token_limit = 200_000
+
+[model_providers.deepseek]
+name = "OpenAI"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+
+[profiles.deepseek-pro]
+model = "deepseek-v4-pro"
+model_provider = "deepseek"
+model_reasoning_effort = "xhigh"
+max_tokens = 128_000
+model_context_window = 250_000
+
+[profiles.deepseek-flash]
+model = "deepseek-v4-flash"
+model_provider = "deepseek"
+model_reasoning_effort = "none"
+max_tokens = 128_000
+model_context_window = 250_000
