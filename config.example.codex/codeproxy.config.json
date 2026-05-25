@@ -2,10 +2,14 @@
   "version": "1.0",
   "currentUpstream": "deepseek",
   "upstreams": {
-		"deepseek": {
-			"baseUrl": "https://api.deepseek.com/v1",
-			"apiKey": "sk-...",
-			"dropImages": true
-		}
-	}
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-...",
+      "dropImages": true,
+      "modelAliases": {
+        "gpt-5.5": "deepseek-v4-flash",
+        "gpt-4o": "deepseek-v4-flash"
+      }
+    }
+  }
 }

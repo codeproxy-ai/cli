@@ -3,8 +3,8 @@ model = "deepseek-v4-flash"
 model_provider = "deepseek"
 model_reasoning_effort = "high"
 max_tokens = 128_000
-model_context_window = 250_000
-model_auto_compact_token_limit = 200_000
+model_context_window = 1_000_000
+model_auto_compact_token_limit = 900_000
 
 [model_providers.deepseek]
 name = "OpenAI"
@@ -16,11 +16,11 @@ model = "deepseek-v4-pro"
 model_provider = "deepseek"
 model_reasoning_effort = "xhigh"
 max_tokens = 128_000
-model_context_window = 250_000
+model_context_window = 1_000_000
 
 [profiles.deepseek-flash]
 model = "deepseek-v4-flash"
 model_provider = "deepseek"
 model_reasoning_effort = "none"
 max_tokens = 128_000
-model_context_window = 250_000
+model_context_window = 1_000_000
