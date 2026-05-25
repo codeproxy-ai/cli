@@ -1,7 +1,8 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startProxy, saveErrorDump, fmtTime } from '../src/server/proxy.js';
 import { existsSync, rmSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('startProxy integration', () => {
   it('handles GET request with 404', async () => {
@@ -37,9 +38,19 @@ describe('startProxy integration', () => {
 });
 
 describe('saveErrorDump', () => {
-  const logsDir = join(process.cwd(), 'logs');
+  const logsDir = join(tmpdir(), `codeproxy-save-error-dump-${Date.now()}`);
+  const previousLogDir = process.env.CODEPROXY_LOG_DIR;
+
+  beforeAll(() => {
+    process.env.CODEPROXY_LOG_DIR = logsDir;
+  });
 
   afterAll(() => {
+    if (previousLogDir === undefined) {
+      delete process.env.CODEPROXY_LOG_DIR;
+    } else {
+      process.env.CODEPROXY_LOG_DIR = previousLogDir;
+    }
     if (existsSync(logsDir)) {
       rmSync(logsDir, { recursive: true, force: true });
     }
@@ -69,7 +80,7 @@ describe('saveErrorDump', () => {
       },
     });
 
-    expect(filePath).toContain('logs/proxy-error-');
+    expect(filePath).toContain('proxy-error-');
     expect(filePath).toContain('-500.json');
     expect(existsSync(filePath)).toBe(true);
 

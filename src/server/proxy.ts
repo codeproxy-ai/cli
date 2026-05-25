@@ -534,7 +534,7 @@ export function saveErrorDump(dump: {
   };
   proxyResponse: { status: number; headers: Record<string, string>; body: unknown };
 }): string {
-  const dir = resolve(process.cwd(), 'logs');
+  const dir = resolveLogDir();
   mkdirSync(dir, { recursive: true });
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const status = dump.upstreamResponse?.status ?? dump.proxyResponse.status;
@@ -556,7 +556,7 @@ export function saveLastMessage(
   responseBody: unknown,
   upstream?: { request?: unknown; response?: unknown },
 ): string {
-  const dir = resolve(process.cwd(), 'logs');
+  const dir = resolveLogDir();
   mkdirSync(dir, { recursive: true });
   const filePath = join(dir, 'last-message.json');
   const payload = {
@@ -575,4 +575,10 @@ export function saveLastMessage(
 
 function hasHeaders(value: unknown): value is { headers?: Record<string, string> } {
   return Boolean(value) && typeof value === 'object' && 'headers' in value;
+}
+
+function resolveLogDir(): string {
+  return process.env.CODEPROXY_LOG_DIR
+    ? resolve(process.env.CODEPROXY_LOG_DIR)
+    : resolve(process.cwd(), 'logs');
 }
