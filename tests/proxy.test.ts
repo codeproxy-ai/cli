@@ -5,10 +5,13 @@ function mockUpstream(): {
   fetch: typeof fetch;
   lastHeaders: () => Record<string, string>;
   lastBody: () => string;
+  callCount: () => number;
 } {
   let headers: Record<string, string> = {};
   let body = '';
+  let calls = 0;
   const impl: typeof fetch = async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
     body = String(init?.body ?? '');
     // eslint-disable-next-line no-restricted-syntax -- test needs to capture headers as Record
     const hdrs: Record<string, string> = (init?.headers ?? {}) as Record<string, string>;
@@ -25,7 +28,7 @@ function mockUpstream(): {
       { status: 200, headers: { 'content-type': 'application/json' } },
     );
   };
-  return { fetch: impl, lastHeaders: () => headers, lastBody: () => body };
+  return { fetch: impl, lastHeaders: () => headers, lastBody: () => body, callCount: () => calls };
 }
 
 describe('startProxy', () => {
@@ -75,6 +78,58 @@ describe('startProxy', () => {
     // ==============================================================================
     // Timeout Tests
     // ==============================================================================
+  });
+
+  it('returns a no-op compaction response without calling upstream', async () => {
+    const before = upstream.callCount();
+    const res = await fetch(`${proxy.url}/v1/responses/compact`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        input: [
+          {
+            id: 'msg_1',
+            type: 'message',
+            status: 'completed',
+            role: 'user',
+            content: [{ type: 'input_text', text: 'Hello' }],
+          },
+        ],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json: {
+      object: string;
+      output: unknown[];
+      usage: { total_tokens: number };
+    } = await res.json();
+    expect(json.object).toBe('response.compaction');
+    expect(json.output).toEqual([
+      {
+        id: 'msg_1',
+        type: 'message',
+        status: 'completed',
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Hello' }],
+      },
+    ]);
+    expect(json.usage.total_tokens).toBe(0);
+    expect(upstream.callCount()).toBe(before);
+  });
+
+  it('normalizes string input for compaction requests', async () => {
+    const res = await fetch(`${proxy.url}/v1/responses/compact`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-5', input: 'Hello' }),
+    });
+
+    expect(res.status).toBe(200);
+    const json: { output: Array<{ content: Array<{ text: string; type: string }> }> } =
+      await res.json();
+    expect(json.output[0].content).toEqual([{ type: 'input_text', text: 'Hello' }]);
   });
 
   it('handles CORS preflight', async () => {

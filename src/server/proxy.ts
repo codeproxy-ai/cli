@@ -11,6 +11,15 @@ import http, { type IncomingMessage, type Server, type ServerResponse } from 'no
 import { Readable } from 'node:stream';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { handleCompactRequest } from './compact.js';
+import {
+  corsHeaders,
+  flattenIncomingHeaders,
+  headersInitToObject,
+  headersToObject,
+  redactAuth,
+  tryParseJson,
+} from './http-utils.js';
 
 // ==============================================================================
 // Helpers
@@ -35,6 +44,15 @@ export function fmtDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 import { createResponsesFetch, type CreateResponsesFetchOptions } from '@codeproxy/core';
+
+export {
+  corsHeaders,
+  flattenIncomingHeaders,
+  headersInitToObject,
+  headersToObject,
+  redactAuth,
+  tryParseJson,
+} from './http-utils.js';
 
 export interface StartProxyOptions extends Omit<CreateResponsesFetchOptions, 'passthroughFetch'> {
   /** Host to bind to. Defaults to `127.0.0.1`. */
@@ -159,7 +177,7 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
 
     const resp = await baseFetch(input, init);
 
-    if (!resp.ok) {
+    {
       const clone = resp.clone();
       const text = await clone.text().catch(() => '');
       upstreamCapture.response = {
@@ -168,8 +186,6 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
         headers: headersToObject(resp.headers),
         body: tryParseJson(text),
       };
-    } else {
-      upstreamCapture.response = undefined;
     }
     return resp;
   };
@@ -346,7 +362,8 @@ async function handleRequest(
     body = await readIncomingBody(req);
   }
 
-  if (!/^\/v1\/responses\/?(?:\?|$)/.test(urlPath)) {
+  const pathname = requestPathname(urlPath);
+  if (pathname !== '/v1/responses' && pathname !== '/v1/responses/compact') {
     res.writeHead(404, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ error: { message: `Not found: ${method} ${urlPath}` } }));
     return;
@@ -359,6 +376,29 @@ async function handleRequest(
 
   // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
   try {
+    if (pathname === '/v1/responses/compact') {
+      const response = handleCompactRequest(method, requestBodyText);
+      const responseBodyText = await response.clone().text();
+      saveLastMessage(tryParseJson(requestBodyText), tryParseJson(responseBodyText));
+
+      opts.requestTracker.remove(requestId);
+      /* c8 ignore start */
+      if (opts.logger) {
+        process.stdout.write(
+          `\r\x1b[K<-- ${response.status}  (${fmtDuration(Date.now() - requestStart)})\n`,
+        );
+      }
+      /* c8 ignore stop */
+
+      const outHeaders = headersToObject(response.headers);
+      if (opts.cors) {
+        Object.assign(outHeaders, corsHeaders());
+      }
+      res.writeHead(response.status, outHeaders);
+      res.end(responseBodyText);
+      return;
+    }
+
     const response = await opts.apiFetch(`http://local${urlPath}`, {
       method,
       headers,
@@ -369,8 +409,11 @@ async function handleRequest(
     // Consume response body so onCacheStats fires (for streaming responses)
     const responseBodyText = response.body ? await response.clone().text() : '';
 
-    // Save last message for debugging
-    saveLastMessage(tryParseJson(requestBodyText), tryParseJson(responseBodyText));
+    // Save last message for debugging (includes upstream raw exchange)
+    saveLastMessage(tryParseJson(requestBodyText), tryParseJson(responseBodyText), {
+      request: opts.upstreamCapture.request,
+      response: opts.upstreamCapture.response,
+    });
 
     // Remove from active requests and write final result
     opts.requestTracker.remove(requestId);
@@ -444,6 +487,15 @@ async function handleRequest(
   }
 }
 
+function requestPathname(urlPath: string): string {
+  // eslint-disable-next-line no-restricted-syntax -- URL parsing is the safest way to ignore query strings
+  try {
+    return new URL(urlPath, 'http://local').pathname.replace(/\/+$/, '') || '/';
+  } catch {
+    return urlPath.split('?')[0]?.replace(/\/+$/, '') || '/';
+  }
+}
+
 function readIncomingBody(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -456,77 +508,11 @@ function readIncomingBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
-export function flattenIncomingHeaders(
-  headers: IncomingMessage['headers'],
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    if (value == null) {
-      continue;
-    }
-    out[key.toLowerCase()] = Array.isArray(value) ? value.join(', ') : String(value);
-  }
-  return out;
-}
-
-export function headersToObject(headers: Headers): Record<string, string> {
-  const out: Record<string, string> = {};
-  headers.forEach((value, key) => {
-    out[key] = value;
-  });
-  return out;
-}
-
 function setCorsHeaders(res: ServerResponse): void {
   const headers = corsHeaders();
   for (const [key, value] of Object.entries(headers)) {
     res.setHeader(key, value);
   }
-}
-
-export function corsHeaders(): Record<string, string> {
-  return {
-    'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
-    'access-control-allow-headers':
-      'authorization,content-type,x-api-key,anthropic-version,anthropic-beta,anthropic-dangerous-direct-browser-access',
-    'access-control-expose-headers': 'content-type',
-  };
-}
-
-export function tryParseJson(str: string | undefined | null): unknown {
-  if (!str) {
-    return str ?? null;
-  }
-  // eslint-disable-next-line no-restricted-syntax -- try/catch needed for server-side HTTP error handling
-  try {
-    return JSON.parse(str);
-  } catch {
-    return str;
-  }
-}
-
-export function headersInitToObject(headersInit: HeadersInit | undefined): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!headersInit) {
-    return out;
-  }
-  if (typeof Headers !== 'undefined' && headersInit instanceof Headers) {
-    headersInit.forEach((value, key) => {
-      out[key.toLowerCase()] = value;
-    });
-    return out;
-  }
-  if (Array.isArray(headersInit)) {
-    for (const [key, value] of headersInit) {
-      out[String(key).toLowerCase()] = String(value);
-    }
-    return out;
-  }
-  for (const [key, value] of Object.entries(headersInit)) {
-    out[key.toLowerCase()] = String(value);
-  }
-  return out;
 }
 
 export function saveErrorDump(dump: {
@@ -558,25 +544,12 @@ export function saveErrorDump(dump: {
   return filePath;
 }
 
-export function redactAuth(headers: Record<string, string> | undefined): void {
-  if (!headers) {
-    return;
-  }
-  for (const key of Object.keys(headers)) {
-    const lowerKey = key.toLowerCase();
-    if (
-      lowerKey === 'authorization' ||
-      lowerKey === 'x-api-key' ||
-      lowerKey === 'api-key' ||
-      lowerKey === 'cookie'
-    ) {
-      headers[key] = '[REDACTED]';
-    }
-  }
-}
-
 /** Save the last message to logs/last-message.json for debugging. */
-export function saveLastMessage(requestBody: unknown, responseBody: unknown): string {
+export function saveLastMessage(
+  requestBody: unknown,
+  responseBody: unknown,
+  upstream?: { request?: unknown; response?: unknown },
+): string {
   const dir = resolve(process.cwd(), 'logs');
   mkdirSync(dir, { recursive: true });
   const filePath = join(dir, 'last-message.json');
@@ -584,7 +557,16 @@ export function saveLastMessage(requestBody: unknown, responseBody: unknown): st
     timestamp: new Date().toISOString(),
     request: requestBody,
     response: responseBody,
+    upstream,
   };
+  const upstreamRequest = upstream?.request;
+  if (hasHeaders(upstreamRequest)) {
+    redactAuth(upstreamRequest.headers);
+  }
   writeFileSync(filePath, JSON.stringify(payload, null, 2));
   return filePath;
+}
+
+function hasHeaders(value: unknown): value is { headers?: Record<string, string> } {
+  return Boolean(value) && typeof value === 'object' && 'headers' in value;
 }
